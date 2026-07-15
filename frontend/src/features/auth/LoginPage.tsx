@@ -69,39 +69,50 @@ export function LoginPage() {
     // realmente não couber (telas muito baixas), em vez de a página inteira
     // rolar por causa da ilustração da esquerda.
     <main className="grid h-svh overflow-hidden bg-canvas lg:grid-cols-[minmax(34rem,1.08fr)_minmax(29rem,0.92fr)]">
-      <section className="relative hidden h-svh min-h-0 overflow-hidden bg-brand-950 px-12 py-8 text-white lg:flex lg:flex-col xl:px-18">
+      <section className="relative hidden h-svh min-h-0 overflow-hidden bg-brand-950 px-10 py-6 text-white lg:flex lg:flex-col xl:px-14">
         <BrandLogo />
 
         <motion.div
-          className="my-auto min-h-0 max-w-2xl"
+          className="my-auto min-h-0 w-full max-w-2xl py-4"
           initial={reduzirMovimento ? false : { opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         >
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-brand-300">
+          <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-brand-300">
             Operações com agentes de IA
           </p>
-          {/* clamp em vez de degraus de breakpoint: a altura disponível varia de
-              forma contínua, e o texto precisa encolher junto para o painel
-              caber sem rolagem em telas baixas (1366x768 e notebooks 13"). */}
-          <h1 className="max-w-xl font-semibold leading-[1.06] tracking-[-0.052em] [font-size:clamp(2.25rem,3.4vh+1.6rem,3.4rem)]">
+          {/* clamp por vh em vez de degraus de breakpoint: a altura disponível
+              varia de forma contínua, e o texto precisa encolher junto para o
+              painel caber sem rolagem em telas baixas (1366x768 e notebooks
+              13"). O texto cede altura antes da imagem, e não o contrário. */}
+          <h1 className="max-w-lg font-semibold leading-[1.05] tracking-[-0.052em] [font-size:clamp(1.75rem,2.6vh+1.05rem,2.6rem)]">
             Controle total sobre cada execução.
           </h1>
-          <p className="mt-5 max-w-xl leading-7 text-[#b9c7e6] [font-size:clamp(.95rem,1vh+.55rem,1.1rem)]">
+          <p className="mt-3 max-w-md leading-6 text-[#b9c7e6] [font-size:clamp(.82rem,.7vh+.52rem,.95rem)]">
             Acompanhe consumo, investigue bloqueios e mantenha seus agentes operando dentro da cota.
           </p>
 
           {imagemDisponivel && (
             <motion.figure
-              className="mt-7 hidden overflow-hidden rounded-2xl border border-white/10 bg-brand-900 shadow-[0_30px_80px_-35px_rgba(41,93,255,.7)] xl:block"
+              // w-fit: a moldura encolhe até a imagem em vez de esticar. Com
+              // uma caixa de largura fixa sobrava letterbox nas laterais (a
+              // caixa era mais larga que a proporção 2:1 do print), e a faixa
+              // aparecia dentro da borda arredondada. Deixando a figure seguir
+              // a imagem, a borda abraça o print e não sobra nada.
+              className="mt-5 hidden w-fit overflow-hidden rounded-xl border border-white/10 shadow-[0_30px_80px_-35px_rgba(41,93,255,.7)] lg:block"
               initial={reduzirMovimento ? false : { opacity: 0, scale: 0.985 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.16, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             >
               <img
-                // max-h em vh: a ilustração cede altura primeiro, porque é o
-                // elemento decorativo. Título e formulário não podem encolher.
-                className="block max-h-[34vh] w-full object-cover"
+                // A imagem é dimensionada pela ALTURA (max-h em vh) e a largura
+                // segue a proporção. Isso a mantém inteira, nunca cortada, e faz
+                // dela a peça que cede espaço quando a viewport encolhe, sem
+                // nunca empurrar rolagem.
+                //
+                // max-w-full protege o caso inverso: viewport alta e estreita,
+                // onde a largura proporcional estouraria a coluna.
+                className="block h-auto max-h-[40vh] w-auto max-w-full"
                 src="https://rotik.io/wp-content/uploads/2026/02/ilu-svg-hero-2x-2048x1028-1.webp"
                 alt=""
                 onError={() => setImagemDisponivel(false)}
@@ -110,7 +121,7 @@ export function LoginPage() {
           )}
         </motion.div>
 
-        <div className="shrink-0 flex items-center gap-2 text-sm text-[#8390ac]">
+        <div className="flex shrink-0 items-center gap-2 text-xs text-[#8390ac]">
           <ShieldCheck className="size-4 text-brand-300" aria-hidden="true" />
           Ambiente seguro e isolado por cliente
         </div>
