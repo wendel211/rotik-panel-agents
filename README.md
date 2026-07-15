@@ -247,3 +247,51 @@ discussão** — modelar demais é tão caro quanto modelar de menos:
 | **Refresh token / RBAC / OAuth** | O desafio dispensa explicitamente: "uma simplificação documentada é aceitável". |
 
 ---
+
+## 4. Riscos e ambiguidades que decidi não resolver agora
+
+Não são itens esquecidos — são decisões conscientes de adiar. Para cada um, o que me deixa
+confortável em seguir sem resolver:
+
+**1. O painel pode não ser o produto certo.**
+O briefing pede "ser alertados", e alerta não é tela — é notificação. Existe risco real de construir
+um dashboard que ninguém abre.
+**Por que é razoável adiar:** é o desafio proposto, e o dashboard é pré-requisito honesto do alerta
+(todo alerta precisa de um destino para onde apontar). Mas trato isso de frente na Etapa 7, e as
+métricas que vou propor são desenhadas para **detectar** esse fracasso, não para escondê-lo.
+
+**2. Divergência entre o consumo consolidado e os fatos registrados.**
+Manter um contador em vez de contar as execuções na hora é o que torna a leitura barata (ver Etapa 1),
+mas cria a possibilidade de o contador mentir — e ele é a base do faturamento.
+**Por que é razoável adiar:** contador e execução são escritos na **mesma transação**, então o banco
+já garante o invariante contra o caminho normal. O que falta é defesa contra bug de código, não
+contra falha de infraestrutura. E como as execuções continuam registradas, a verdade é sempre
+reconstruível — um job de reconciliação comparando contagem real vs. contador fecha o risco depois,
+rodando fora do caminho crítico.
+
+**3. Crescimento do histórico de execuções.**
+É a tabela que mais cresce e nada a limita. Em escala de milhões/mês, storage e índices viram custo.
+**Por que é razoável adiar:** a decisão de particionar depende de volume real, que não temos.
+Particionar cedo é complexidade sem retorno. **E o modelo não bloqueia essa evolução:** a leitura de
+cota **não depende** do histórico (é o ponto central da Etapa 1), então dá para particionar,
+arquivar ou expurgar sem tocar no dashboard nem no enforcement.
+
+**4. Concorrência entre registrar execução e mudar de plano.**
+Se o Comercial faz upgrade no exato momento de um bloqueio, o resultado depende de quem commita
+primeiro.
+**Por que é razoável adiar:** no pior caso, uma execução é recusada milissegundos antes de um upgrade
+que a teria permitido, e o runtime já trata recusa com retry. Nunca há estado corrompido. Impacto
+real: aproximadamente zero.
+
+**5. Ambiguidade de fuso na virada do mês.**
+Ancorar a competência em UTC (pergunta 5) significa que, para um cliente em São Paulo, a cota vira às
+21h do último dia.
+**Por que é razoável adiar:** o custo é explicar isso ao cliente; a alternativa (competência por fuso
+do cliente) espalha lógica de timezone por todo o enforcement. Prefiro uma âncora única, previsível e
+documentada a uma correta e frágil.
+
+---
+
+> **Etapa 0 concluída.** A próxima etapa (Modelagem de dados) parte da suposição central registrada
+> na pergunta 1 — cota do cliente, atribuição por agente — e do requisito de performance que ela
+> impõe: consultar consumo mensal sem contar execuções em tempo real.
