@@ -1,0 +1,170 @@
+// =====================================================================
+//  Rotik | Painel de Monitoramento de Agentes de IA
+//  Modelo de dados (Etapa 1). Cole em https://dbdiagram.io/d
+//
+//  FONTE DA VERDADE: db/init/01_schema.sql
+//  Este arquivo é uma REPRESENTAÇÃO do schema, mantida em sincronia
+//  manualmente. Se divergirem, o SQL vence.
+// =====================================================================
+
+Project rotik_panel_agents {
+  database_type: 'PostgreSQL'
+  Note: '''
+    # Painel de Monitoramento de Agentes de IA
+
+    **Decisão central:** a cota é do CLIENTE (pool compartilhado via plano),
+    a atribuição é do AGENTE. O briefing pede as duas coisas em frases
+    diferentes, este modelo atende às duas em vez de escolher uma.
+
+    **Requisito de performance:** "uso mensal" NUNCA é COUNT(*) em tempo real.
+    É um contador consolidado (`execucoes_mes_atual`) emparelhado com a
+    competência (`periodo_referencia`), com reset preguiçoso, sem cron.
+    Ler a cota custa O(1), independente do volume de execuções do cliente.
+  '''
+}
+
+// ---------------------------------------------------------------------
+Table planos {
+  id uuid [pk, default: `gen_random_uuid()`]
+  nome text [not null, note: 'UNIQUE sobre lower(nome). Starter, Growth, Scale']
+  limite_execucoes_mensal integer [not null, note: 'CHECK > 0. A cota do pool.']
+  ativo boolean [not null, default: true]
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+
+  Note: '''
+    Catálogo comercial. O limite vive AQUI, nunca no cliente:
+    mudar o limite do "Growth" deve valer para todos os clientes
+    do Growth sem UPDATE em massa.
+
+    "Limite" não virou entidade própria, é 1:1 com Plano (YAGNI).
+  '''
+}
+
+// ---------------------------------------------------------------------
+Table clientes {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'Fronteira de tenant, vem do JWT']
+  nome text [not null]
+  email text [not null, note: 'UNIQUE sobre lower(email)']
+  senha_hash text [not null, note: 'bcrypt']
+  plano_id uuid [not null]
+
+  execucoes_mes_atual integer [not null, default: 0, note: '>>> CONSOLIDADO: base do ENFORCEMENT']
+  periodo_referencia date [not null, default: `periodo_atual()`, note: 'Competência do contador (UTC)']
+
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+
+  Indexes {
+    plano_id [name: 'clientes_plano_id_idx']
+    (email) [unique, name: 'clientes_email_uniq_idx (sobre lower(email))']
+  }
+
+  Note: '''
+    Titular da cota E fronteira de tenant.
+
+    `execucoes_mes_atual` + `periodo_referencia` é o par que substitui
+    COUNT(*). O contador SÓ é válido se periodo_referencia = mês atual;
+    caso contrário lê 0 (reset preguiçoso, aplicado na leitura pela view).
+
+    É a linha travada pelo UPDATE condicional que implementa o bloqueio.
+    ORDEM DE LOCK: sempre clientes ANTES de agentes (evita deadlock).
+  '''
+}
+
+// ---------------------------------------------------------------------
+Table agentes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  cliente_id uuid [not null]
+  nome text [not null, note: 'UNIQUE por cliente sobre lower(nome), ignora arquivados']
+  descricao text
+  status text [not null, default: 'ativo', note: 'CHECK IN (ativo, pausado, arquivado)']
+
+  execucoes_mes_atual integer [not null, default: 0, note: '>>> CONSOLIDADO: ATRIBUIÇÃO (qual agente queima a cota)']
+  periodo_referencia date [not null, default: `periodo_atual()`]
+
+  total_execucoes bigint [not null, default: 0, note: '>>> CONSOLIDADO: vitalício. Evita COUNT(*) no totalItems da paginação']
+  ultima_execucao_em timestamptz
+
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+
+  Indexes {
+    (cliente_id, criado_em) [name: 'agentes_cliente_criado_idx: dashboard']
+    (cliente_id, nome) [unique, name: 'agentes_cliente_nome_uniq_idx: parcial, WHERE status <> arquivado']
+    (id, cliente_id) [unique, name: 'agentes_id_cliente_uniq: habilita a FK composta de execucoes']
+  }
+
+  Note: '''
+    Os contadores aqui são de ATRIBUIÇÃO, não de enforcement.
+    O bloqueio é decidido pelo contador do CLIENTE, o pool é compartilhado.
+    Este contador responde "QUAL agente está queimando a cota?", que é a
+    primeira pergunta do CS ao ver uma conta em 95%.
+
+    UNIQUE (id, cliente_id) parece redundante com a PK, mas é o que
+    permite a FK composta em `execucoes`, e é o que faz o BANCO garantir
+    o isolamento entre tenants, em vez de depender do código lembrar do WHERE.
+  '''
+}
+
+// ---------------------------------------------------------------------
+Table execucoes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  agente_id uuid [not null]
+  cliente_id uuid [not null, note: 'DESNORMALIZADO de propósito, garantido pela FK composta']
+
+  status text [not null, note: 'CHECK IN (sucesso, erro, bloqueada)']
+  duracao_ms integer
+  tokens_entrada integer
+  tokens_saida integer
+  mensagem_erro text
+  criado_em timestamptz [not null, default: `now()`, note: 'Chave de paginação keyset']
+
+  Indexes {
+    (agente_id, criado_em, id) [name: 'execucoes_agente_keyset_idx: histórico paginado (query mais quente)']
+    (cliente_id, criado_em, id) [name: 'execucoes_cliente_keyset_idx: diagnóstico do CS']
+    (cliente_id, criado_em) [name: 'execucoes_bloqueadas_idx: PARCIAL, WHERE status = bloqueada']
+  }
+
+  Note: '''
+    Tabela de fatos, append-only. De longe a que mais cresce.
+
+    Guarda TAMBÉM as execuções recusadas (status = "bloqueada"): o briefing
+    pede "ou pelo menos a gente precisa saber que isso aconteceu".
+    Elas são AUDITORIA, não incrementam contador e não consomem cota.
+
+    `cliente_id` é desnormalizado (derivável via agentes), mas é IMUTÁVEL,
+    nenhum UPDATE pode fazê-lo divergir, e a FK composta impede que nasça
+    errado. Compra isolamento de tenant e índice sem JOIN, de graça.
+
+    Paginação keyset: (criado_em, id) porque criado_em NÃO é único,
+    sem o id como desempate, uma linha poderia ser pulada ou repetida
+    entre páginas.
+  '''
+}
+
+// ---------------------------------------------------------------------
+//  Relacionamentos
+// ---------------------------------------------------------------------
+
+// Apagar um plano com clientes ativos deve DOER, não cascatear.
+Ref: clientes.plano_id > planos.id [delete: restrict]
+
+// Off-boarding de cliente remove tudo em um comando (ajuda em LGPD).
+Ref: agentes.cliente_id > clientes.id [delete: cascade]
+
+// FK COMPOSTA: o coração do isolamento entre tenants.
+// Torna FISICAMENTE IMPOSSÍVEL gravar uma execução do agente do cliente A
+// sob o cliente B. Verificado: o banco recusa o INSERT.
+Ref: execucoes.(agente_id, cliente_id) > agentes.(id, cliente_id) [delete: cascade]
+
+// ---------------------------------------------------------------------
+TableGroup "Comercial (muda raramente)" {
+  planos
+  clientes
+}
+
+TableGroup "Operação (alto volume)" {
+  agentes
+  execucoes
+}
