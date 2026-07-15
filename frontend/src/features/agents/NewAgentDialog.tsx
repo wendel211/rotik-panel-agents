@@ -99,17 +99,17 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
 
   return (
     <Dialog aberto={aberto} aoFechar={aoFechar} ariaLabelledby="titulo-novo-agente">
-      <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5 sm:px-7">
+      <div className="flex items-start justify-between border-b border-line px-6 py-5 sm:px-7">
         <div className="flex gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700">
             <Bot className="size-5" aria-hidden="true" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-slate-950" id="titulo-novo-agente">Cadastrar agente</h2>
-            <p className="mt-1 text-sm text-slate-500">O agente será criado como ativo nesta conta.</p>
+            <h2 className="text-lg font-semibold text-ink" id="titulo-novo-agente">Cadastrar agente</h2>
+            <p className="mt-1 text-sm text-muted">O agente será criado como ativo nesta conta.</p>
           </div>
         </div>
-        <button className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900" type="button" onClick={aoFechar} aria-label="Fechar cadastro">
+        <button className="icon-button size-9 shrink-0" type="button" onClick={aoFechar} aria-label="Fechar cadastro">
           <X className="size-5" aria-hidden="true" />
         </button>
       </div>
@@ -117,9 +117,9 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
       <form onSubmit={enviar} noValidate>
         <div className="space-y-5 px-6 py-6 sm:px-7">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-800" htmlFor="nome-agente">Nome do agente</label>
+            <label className="mb-2 block text-sm font-medium text-[#444b66]" htmlFor="nome-agente">Nome do agente</label>
             <input
-              className="h-11 w-full rounded-xl border border-slate-300 px-3.5 text-slate-950 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-600/10"
+              className="control-field h-11 px-3.5"
               id="nome-agente"
               autoFocus
               value={nome}
@@ -136,11 +136,11 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-800" htmlFor="descricao-agente">
+            <label className="mb-2 block text-sm font-medium text-[#444b66]" htmlFor="descricao-agente">
               Descrição <span className="font-normal text-slate-400">(opcional)</span>
             </label>
             <textarea
-              className="min-h-28 w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-slate-950 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-600/10"
+              className="control-field min-h-28 resize-y px-3.5 py-3"
               id="descricao-agente"
               value={descricao}
               onChange={(evento) => setDescricao(evento.target.value)}
@@ -158,9 +158,9 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
           {erros.formulario && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{erros.formulario}</p>}
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
-          <button className="h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50" type="button" onClick={aoFechar}>Cancelar</button>
-          <button className="flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={criacao.isPending}>
+        <div className="flex flex-col-reverse gap-3 border-t border-line bg-[#f8faff] px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
+          <button className="button-secondary h-10" type="button" onClick={aoFechar}>Cancelar</button>
+          <button className="button-primary h-10" type="submit" disabled={criacao.isPending}>
             {criacao.isPending && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
             {criacao.isPending ? 'Cadastrando...' : 'Cadastrar agente'}
           </button>
