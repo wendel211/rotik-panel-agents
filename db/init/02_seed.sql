@@ -19,9 +19,9 @@ BEGIN;
 --  na demo sem gerar 10 mil requests.
 -- ---------------------------------------------------------------------
 INSERT INTO planos (nome, limite_execucoes_mensal) VALUES
-  ('Starter', 100),
-  ('Growth',  1000),
-  ('Scale',   10000);
+  ('Growth',     100),
+  ('Scale',      1000),
+  ('Enterprise', 10000);
 
 -- ---------------------------------------------------------------------
 --  Clientes
@@ -34,8 +34,10 @@ SELECT
   'cs@acme.dev',
   crypt(:'senha_demo', gen_salt('bf', 10)),
   p.id,
-  82                       -- já perto do limite (82/100): a barra abre em ~82%
-FROM planos p WHERE p.nome = 'Starter';
+  -- 82/100 = 82%: a conta abre em zona de alerta, que é o estado que o painel
+  -- existe para mostrar. Abrir folgado esconderia a regra central do desafio.
+  82
+FROM planos p WHERE p.nome = 'Growth';
 
 INSERT INTO clientes (nome, email, senha_hash, plano_id, execucoes_mes_atual)
 SELECT
@@ -43,8 +45,8 @@ SELECT
   'cs@globex.dev',
   crypt(:'senha_demo', gen_salt('bf', 10)),
   p.id,
-  140                      -- 140/1000: bem folgado
-FROM planos p WHERE p.nome = 'Growth';
+  140                      -- 140/1000 = 14%: contraste com a Acme, conta folgada
+FROM planos p WHERE p.nome = 'Scale';
 
 -- ---------------------------------------------------------------------
 --  Agentes

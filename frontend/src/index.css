@@ -1,13 +1,136 @@
 @import "tailwindcss";
 
+@theme {
+  /* Tipografia.
+     Inter para UI: desenhada para texto pequeno em tela, que é 90% deste
+     painel. JetBrains Mono para números, porque o painel é sobre contagem:
+     cota, execuções, limites. Mono com dígitos de mesma largura faz as colunas
+     alinharem e o número parar de "dançar" quando o valor muda. */
+  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Marca. Extraída do site e do produto da Rotik. */
+  --color-brand-950: #06102b;
+  --color-brand-900: #101b3d;
+  --color-brand-700: #295dff;
+  --color-brand-600: #3285ff;
+  --color-brand-300: #87c8ff;
+  --color-brand-100: #d6ebff;
+  --color-brand-50: #e9f0ff;
+
+  /* Superfícies claras. Usadas só no login, que é a porta de entrada. */
+  --color-canvas: #f3f6fc;
+  --color-surface: #fffffd;
+  --color-ink: #0c0f1e;
+  --color-muted: #647291;
+  --color-subtle: #647291;
+  --color-line: #e2e8f5;
+
+  /* Superfícies escuras do painel.
+     O produto da Rotik é escuro, e o painel operacional é uma tela de vigília:
+     o CS deixa aberta o dia inteiro. Fundo escuro reduz fadiga e deixa a cor
+     semântica (vermelho de bloqueio, âmbar de alerta) saltar de verdade. */
+  --color-shell: #080e1c;
+  --color-rail: #0b1322;
+  --color-panel: #101a2e;
+  --color-panel-2: #16223a;
+  --color-hairline: #1e2b45;
+  --color-hi: #eaf0fb;
+  --color-lo: #8b9ac0;
+
+  /* Azul de destaque DO PAINEL, separado de brand-300 de propósito.
+     O painel esquerdo do login é sempre escuro e usa brand-300; sobrescrever
+     aquele token no tema claro apagaria o texto do login. Este flipa, aquele não. */
+  --color-accent: #87c8ff;
+
+  /* Semânticas. Nunca decorativas: cada uma significa um estado do negócio.
+
+     Matiz escolhida pelo significado, não pela paleta padrão do Tailwind:
+     - warn é AMARELO (yellow), não âmbar. Âmbar puxa laranja e ficava perto
+       demais do vermelho, que é o estado vizinho e o que não pode ser
+       confundido: pausado é escolha do operador, bloqueado é perda de receita.
+     - danger é VERMELHO (red), não rose. Rose puxa rosa e não lia como alarme. */
+  --color-ok: #10b981;
+  --color-warn: #facc15;
+  --color-danger: #ff5a5a;
+}
+
+/* ---------------------------------------------------------------------------
+   Tema claro.
+   O escuro é o padrão (vive no @theme acima), e o claro é um override por
+   atributo. Isso importa: sem `data-theme`, a página já nasce escura, então
+   não existe flash de tema errado no primeiro paint.
+
+   O Tailwind v4 compila `bg-panel` para `background-color: var(--color-panel)`,
+   então redefinir a variável aqui vira o painel inteiro sem tocar em um único
+   componente. Nenhum `dark:` espalhado pelo JSX.
+   --------------------------------------------------------------------------- */
+:root[data-theme='light'] {
+  --color-shell: #f2f5fb;
+  --color-rail: #ffffff;
+  --color-panel: #ffffff;
+  --color-panel-2: #f6f9ff;
+  --color-hairline: #e3e9f5;
+  --color-hi: #0c0f1e;
+  --color-lo: #5b6a8b;
+
+  --color-accent: #295dff;
+
+  /* Mesma MATIZ do escuro, luminosidade diferente. Amarelo continua amarelo e
+     vermelho continua vermelho; o que muda é o quanto escurecem para caber no
+     contraste do fundo branco.
+
+     Isso não é gosto, é física da cor: amarelo é intrinsecamente luminoso, então
+     #facc15 sobre branco dá ~1.6:1 contra o mínimo de 4.5:1 do WCAG AA. Não
+     existe amarelo vivo legível em fundo branco: o mais claro que passa já puxa
+     oliva. O valor abaixo mantém a MATIZ do amarelo (46deg, dourado, longe do
+     âmbar que puxava laranja e se aproximava do vermelho) e escurece só o
+     necessário para ser lido. */
+  --color-ok: #047857;
+  --color-warn: #8a6a00;
+  --color-danger: #d92020;
+
+  --panel-glow: none;
+  --panel-shadow: 0 1px 2px rgba(6, 16, 43, 0.05), 0 14px 34px -22px rgba(6, 16, 43, 0.22);
+  --grid-line: rgba(6, 16, 43, 0.028);
+  --grid-glow: rgba(41, 93, 255, 0.07);
+  --sheen: rgba(255, 255, 255, 0.6);
+}
+
+/* O fundo do documento acompanha o tema, senão a área fora do app (overscroll,
+   barra de rolagem) continuaria escura no tema claro. */
+:root[data-theme='light'] body {
+  background: #f2f5fb;
+}
+
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #172033;
-  background: #f5f7fb;
+  font-family: var(--font-sans);
+
+  /* Features do Inter que valem num painel operacional:
+     cv11  -> "a" e "g" de andar único, mais legíveis em corpo pequeno
+     ss01  -> alternativas de letra com desenho mais neutro
+     tnum  -> dígitos tabulares: 1 ocupa a mesma largura que 8, então um número
+              que atualiza não empurra o texto ao lado
+     calt/liga -> ligaduras contextuais, deixa o texto menos "quebrado" */
+  font-feature-settings: 'cv11', 'ss01', 'tnum', 'calt', 'liga';
+  font-optical-sizing: auto;
+  color: #0c0f1e;
+  background: #f3f6fc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --shadow-panel: 0 1px 2px rgba(6, 16, 43, 0.04), 0 18px 45px rgba(6, 16, 43, 0.06);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Efeitos que dependem da luz do tema. Não são cores de utilitário, então
+     vivem aqui e não no @theme. O brilho superior simula luz vindo de cima:
+     no claro ele não faz sentido e some, dando lugar a uma sombra real. */
+  --panel-glow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --panel-shadow: 0 12px 32px -18px rgba(0, 0, 0, 0.7);
+  --grid-line: rgba(255, 255, 255, 0.022);
+  --grid-glow: rgba(41, 93, 255, 0.14);
+  --sheen: rgba(255, 255, 255, 0.28);
 }
 
 * {
@@ -16,7 +139,7 @@
 
 html {
   min-width: 320px;
-  background: #f5f7fb;
+  background: #f3f6fc;
 }
 
 body {
@@ -31,11 +154,168 @@ textarea {
   font: inherit;
 }
 
-:focus-visible {
-  outline: 3px solid #2563eb;
-  outline-offset: 3px;
+:where(button, a) {
+  -webkit-tap-highlight-color: transparent;
 }
 
+::selection {
+  color: #fffffd;
+  background: #295dff;
+}
+
+:focus-visible {
+  outline: 2px solid #3285ff;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@layer components {
+  /* ---------- Controles (login, claro) ---------- */
+  .control-field {
+    @apply w-full rounded-xl border border-line bg-surface text-ink shadow-sm transition duration-200 placeholder:text-subtle hover:border-subtle focus:border-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-700/10;
+  }
+
+  .button-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white shadow-[0_12px_24px_-14px_rgba(41,93,255,.9)] transition duration-200 hover:bg-brand-600 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-55;
+  }
+
+  .button-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-semibold text-[#444b66] shadow-sm transition duration-200 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-950 disabled:cursor-not-allowed disabled:opacity-55;
+  }
+
+  .icon-button {
+    @apply grid place-items-center rounded-xl text-subtle transition duration-200 hover:bg-brand-50 hover:text-brand-950;
+  }
+
+  /* ---------- Superfícies do painel ----------
+
+     ATENÇÃO: as cores que dependem do tema são escritas com `var()` explícito,
+     e NÃO com `@apply bg-panel-2`.
+
+     Motivo: o `@apply` de um utilitário de cor dentro de @layer resolve o token
+     para o valor literal em tempo de build. O CSS gerado vira
+     `background-color: #16223a` em vez de `background-color: var(--color-panel-2)`,
+     e aí o override de `:root[data-theme="light"]` não tem o que sobrescrever:
+     a indireção que o tema inteiro depende já foi perdida.
+
+     Isso quebrou de forma silenciosa e assimétrica (uns componentes viravam,
+     outros não), que é o pior tipo de bug de tema. `@apply` segue valendo para
+     layout e para o que não muda com o tema. */
+
+  .panel {
+    @apply rounded-2xl border;
+    border-color: var(--color-hairline);
+    background-color: var(--color-panel);
+    box-shadow: var(--panel-glow), var(--panel-shadow);
+  }
+
+  .panel-tile {
+    @apply rounded-xl border;
+    border-color: color-mix(in oklab, var(--color-hairline) 70%, transparent);
+    background-color: var(--color-panel-2);
+  }
+
+  /* Pill do topo. Discreto por padrão, ganha contorno de marca no hover. */
+  .pill {
+    @apply inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-medium transition duration-200;
+    border-color: var(--color-hairline);
+    background-color: var(--color-panel);
+    color: var(--color-lo);
+  }
+
+  .pill:hover {
+    border-color: color-mix(in oklab, var(--color-brand-700) 60%, transparent);
+    color: var(--color-hi);
+  }
+
+  .rail-item {
+    @apply relative grid size-11 place-items-center rounded-xl transition-colors duration-200;
+    color: var(--color-lo);
+  }
+
+  .rail-item:hover {
+    background-color: color-mix(in oklab, var(--color-hi) 5%, transparent);
+    color: var(--color-hi);
+  }
+
+  .btn-dark {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border px-3.5 text-sm font-medium transition duration-200 disabled:cursor-not-allowed disabled:opacity-45;
+    border-color: var(--color-hairline);
+    background-color: var(--color-panel-2);
+    color: var(--color-hi);
+  }
+
+  .btn-dark:hover:not(:disabled) {
+    border-color: color-mix(in oklab, var(--color-brand-700) 60%, transparent);
+    background-color: color-mix(in oklab, var(--color-brand-700) 10%, transparent);
+  }
+
+  .field-dark {
+    @apply w-full rounded-xl border transition duration-200 focus:border-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-700/15;
+    border-color: var(--color-hairline);
+    background-color: color-mix(in oklab, var(--color-shell) 60%, transparent);
+    color: var(--color-hi);
+  }
+
+  .field-dark::placeholder {
+    color: color-mix(in oklab, var(--color-lo) 60%, transparent);
+  }
+}
+
+@layer utilities {
+  /* Preenchimento da barra de cota. Animar `transform` e não `width` mantém a
+     transição no compositor: `width` força layout a cada frame. */
+  .bar-fill {
+    transform-origin: left center;
+    transition: transform 900ms var(--ease-out-expo);
+  }
+
+  /* Varredura sobre a barra, só quando a conta está em risco. Puxa o olho do CS
+     para a única linha que exige ação.
+
+     Finita de propósito (3 repetições, não `infinite`). Este painel é uma tela
+     de vigília: fica aberta o dia inteiro. Animação infinita manteria o
+     compositor acordado para sempre, queimando GPU e bateria por nada, e depois
+     dos primeiros segundos ela já não chama atenção, só vira ruído. Ela existe
+     para ser notada na chegada, e some. O estado continua legível pela cor e
+     pelo texto do selo, que é o que carrega a informação. */
+  @keyframes bar-sheen {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(320%); }
+  }
+
+  .animate-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, var(--sheen), transparent);
+    animation: bar-sheen 2.6s var(--ease-out-expo) 3;
+    animation-fill-mode: forwards;
+  }
+
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
+    70% { box-shadow: 0 0 0 7px rgba(244, 63, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+  }
+
+  .animate-pulse-ring {
+    animation: pulse-ring 2s ease-out 4;
+  }
+
+  /* Malha de fundo. Dá textura ao vazio sem competir com o conteúdo. */
+  .shell-grid {
+    background-image:
+      radial-gradient(1200px 520px at 78% -8%, var(--grid-glow), transparent 60%),
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 100% 100%, 44px 44px, 44px 44px;
+  }
+}
+
+/* Respeita quem pediu menos movimento. Toda animação acima é enfeite ou reforço,
+   nenhuma carrega informação sozinha, então desligar não perde conteúdo. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
