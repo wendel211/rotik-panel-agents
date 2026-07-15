@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
 @theme {
+  /* Tipografia.
+     Inter para UI: desenhada para texto pequeno em tela, que é 90% deste
+     painel. JetBrains Mono para números, porque o painel é sobre contagem:
+     cota, execuções, limites. Mono com dígitos de mesma largura faz as colunas
+     alinharem e o número parar de "dançar" quando o valor muda. */
+  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
   /* Marca. Extraída do site e do produto da Rotik. */
   --color-brand-950: #06102b;
   --color-brand-900: #101b3d;
@@ -35,10 +43,16 @@
      aquele token no tema claro apagaria o texto do login. Este flipa, aquele não. */
   --color-accent: #87c8ff;
 
-  /* Semânticas. Nunca decorativas: cada uma significa um estado do negócio. */
+  /* Semânticas. Nunca decorativas: cada uma significa um estado do negócio.
+
+     Matiz escolhida pelo significado, não pela paleta padrão do Tailwind:
+     - warn é AMARELO (yellow), não âmbar. Âmbar puxa laranja e ficava perto
+       demais do vermelho, que é o estado vizinho e o que não pode ser
+       confundido: pausado é escolha do operador, bloqueado é perda de receita.
+     - danger é VERMELHO (red), não rose. Rose puxa rosa e não lia como alarme. */
   --color-ok: #10b981;
-  --color-warn: #f59e0b;
-  --color-danger: #f43f5e;
+  --color-warn: #facc15;
+  --color-danger: #ff5a5a;
 }
 
 /* ---------------------------------------------------------------------------
@@ -62,12 +76,19 @@
 
   --color-accent: #295dff;
 
-  /* As semânticas escurecem no claro por CONTRASTE, não por gosto: #10b981 e
-     #f59e0b sobre branco ficam em torno de 2:1, longe do mínimo de 4.5:1 do
-     WCAG AA para texto. Os tons 700 passam. */
+  /* Mesma MATIZ do escuro, luminosidade diferente. Amarelo continua amarelo e
+     vermelho continua vermelho; o que muda é o quanto escurecem para caber no
+     contraste do fundo branco.
+
+     Isso não é gosto, é física da cor: amarelo é intrinsecamente luminoso, então
+     #facc15 sobre branco dá ~1.6:1 contra o mínimo de 4.5:1 do WCAG AA. Não
+     existe amarelo vivo legível em fundo branco: o mais claro que passa já puxa
+     oliva. O valor abaixo mantém a MATIZ do amarelo (46deg, dourado, longe do
+     âmbar que puxava laranja e se aproximava do vermelho) e escurece só o
+     necessário para ser lido. */
   --color-ok: #047857;
-  --color-warn: #b45309;
-  --color-danger: #be123c;
+  --color-warn: #8a6a00;
+  --color-danger: #d92020;
 
   --panel-glow: none;
   --panel-shadow: 0 1px 2px rgba(6, 16, 43, 0.05), 0 14px 34px -22px rgba(6, 16, 43, 0.22);
@@ -83,7 +104,16 @@
 }
 
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
+
+  /* Features do Inter que valem num painel operacional:
+     cv11  -> "a" e "g" de andar único, mais legíveis em corpo pequeno
+     ss01  -> alternativas de letra com desenho mais neutro
+     tnum  -> dígitos tabulares: 1 ocupa a mesma largura que 8, então um número
+              que atualiza não empurra o texto ao lado
+     calt/liga -> ligaduras contextuais, deixa o texto menos "quebrado" */
+  font-feature-settings: 'cv11', 'ss01', 'tnum', 'calt', 'liga';
+  font-optical-sizing: auto;
   color: #0c0f1e;
   background: #f3f6fc;
   font-synthesis: none;
