@@ -21,22 +21,28 @@ O MVP entrega:
 - autenticação simplificada com JWT e isolamento por cliente;
 - listagem de agentes com consumo mensal, limite e estado operacional;
 - cadastro de agentes;
-- registro de lotes de execução com tokens por chamada e bloqueio atômico ao atingir a cota;
-- limite de agentes por plano, inclusive sob cadastros concorrentes;
+- simulação em lote com quantidade de execuções e projeção da cota antes do envio;
+- bloqueio atômico na API e prevenção no painel quando o lote ultrapassa a cota disponível;
+- limite de agentes por plano, com aviso em diálogo e proteção sob cadastros concorrentes;
 - histórico paginado, incluindo tentativas bloqueadas;
 - estados de loading, erro, vazio e feedback de atualização;
 - interface responsiva, acessível e integrada à API real.
 
 Contas públicas de demonstração:
 
-| Conta | E-mail | Senha | Cenário inicial |
-|---|---|---|---|
-| Acme Atendimento | `cs@acme.dev` | `senha123` | plano Growth, 82 de 100 execuções |
-| Globex Operações | `cs@globex.dev` | `senha123` | plano Pro, 140 de 1000 execuções |
+| Conta | E-mail | Senha | Plano | Cota mensal | Limite de agentes | Objetivo da demonstração |
+|---|---|---|---|---:|---:|---|
+| Acme Atendimento | `cs@acme.dev` | `senha123` | Growth | 100 execuções, começando em 82 | 5 | Conta próxima do limite, ideal para validar alerta, projeção e bloqueio. |
+| Globex Suporte | `cs@globex.dev` | `senha123` | Pro | 1.000 execuções, começando em 140 | 10 | Conta com margem de uso e maior capacidade, ideal para comparar o comportamento entre planos. |
 
-O plano Growth permite até 5 agentes e o Pro até 10. A cota mensal continua sendo medida em execuções,
-como define o briefing; tokens de entrada e saída são métricas de observabilidade e custo, não a unidade
-de bloqueio do plano.
+As contas pertencem a tenants diferentes e nunca compartilham agentes, histórico ou consumo. A Acme usa o
+plano Growth, com cota e capacidade menores; a Globex usa o plano Pro, com dez vezes mais execuções mensais
+e o dobro de agentes. A cota mensal é medida em execuções, como define o briefing.
+
+Ao clicar em **Simular lote**, o operador informa diretamente quantas execuções serão consumidas. A projeção
+mostra o saldo atual, o consumo resultante e quantas execuções restarão. O painel não envia lotes acima do
+saldo, enquanto a API mantém a mesma validação como garantia de segurança e concorrência. Ao tentar
+cadastrar além da capacidade, um diálogo explica o limite do plano e as opções disponíveis.
 
 Essas credenciais existem somente para avaliação do desafio e não representam uma estratégia de
 autenticação para produção.
@@ -295,7 +301,7 @@ Variáveis principais:
 | `ALLOW_DEMO_SEED` | Banco | autorização explícita para dados de demonstração |
 
 As migrations são versionadas, registram checksum e usam advisory lock. A migration de limites adiciona
-as colunas sem alterar checksums já aplicados, renomeia o plano Scale para Pro e configura Growth com 5 e
+as colunas sem alterar checksums já aplicados, normaliza o segundo plano como Pro e configura Growth com 5 e
 Pro com 10 agentes. Isso permite executar
 `npm run db:deploy` em cada cold start sem duplicar schema ou seed e impede dois containers de aplicar a
 mesma migration simultaneamente.

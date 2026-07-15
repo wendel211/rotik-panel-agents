@@ -121,11 +121,19 @@ describe('dashboard integrado', () => {
 
     await userEvent.click(screen.getAllByRole('button', { name: /execução do agente assistente/i })[0]!)
     expect(screen.getByRole('heading', { name: /simular consumo/i })).toBeInTheDocument()
-    await userEvent.clear(screen.getByLabelText(/quantidade de execuções/i))
-    await userEvent.type(screen.getByLabelText(/quantidade de execuções/i), '12')
-    await userEvent.click(screen.getByRole('button', { name: /confirmar simulação/i }))
+    const quantidade = screen.getByLabelText(/execuções que serão consumidas/i)
+    await userEvent.clear(quantidade)
+    await userEvent.type(quantidade, '61')
+    expect(screen.getByRole('button', { name: /cota insuficiente/i })).toBeDisabled()
+    expect(screen.getByText(/reduza o lote para continuar/i)).toBeInTheDocument()
+
+    await userEvent.clear(quantidade)
+    await userEvent.type(quantidade, '12')
+    expect(screen.getByText('48 restantes')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/tokens/i)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /confirmar lote/i }))
     expect(await screen.findByRole('status')).toHaveTextContent(/processadas/i)
-    expect(api.simularExecucao).toHaveBeenCalledWith('token-teste', 'agente-1', { quantidadeExecucoes: 12, tokensEntrada: 100, tokensSaida: 50 })
+    expect(api.simularExecucao).toHaveBeenCalledWith('token-teste', 'agente-1', { quantidadeExecucoes: 12 })
   })
 
   it('mostra erro de consulta e refaz a chamada', async () => {
@@ -170,13 +178,13 @@ describe('dashboard integrado', () => {
     renderizar(<DashboardPage />)
     const botao = await screen.findByRole('button', { name: /execução do agente assistente/i })
     await userEvent.click(botao)
-    await userEvent.click(screen.getByRole('button', { name: /confirmar simulação/i }))
+    await userEvent.click(screen.getByRole('button', { name: /confirmar lote/i }))
     expect(await screen.findByRole('heading', { name: /cota mensal esgotada/i })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Entendi' }))
     await userEvent.click(botao)
-    await userEvent.click(screen.getByRole('button', { name: /confirmar simulação/i }))
+    await userEvent.click(screen.getByRole('button', { name: /confirmar lote/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Falha controlada')
-    await userEvent.click(screen.getByRole('button', { name: /confirmar simulação/i }))
+    await userEvent.click(screen.getByRole('button', { name: /confirmar lote/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/não foi possível simular/i)
     expect(simular).toHaveBeenCalledTimes(3)
   })
@@ -186,12 +194,15 @@ describe('dashboard integrado', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('desabilita a criação e explica quando o plano atinge o limite de agentes', async () => {
+  it('abre um aviso explicativo quando o plano atinge o limite de agentes', async () => {
     vi.mocked(api.listarAgentes).mockResolvedValue({
       data: Array.from({ length: 5 }, (_, indice) => agente({ id: `agente-${indice}`, nome: `Agente ${indice}` })),
     })
     renderizar(<DashboardPage />)
     expect(await screen.findByText(/limite de 5 agentes do plano growth atingido/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /novo agente/i })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: /novo agente/i }))
+    expect(screen.getByRole('heading', { name: /limite de agentes atingido/i })).toBeInTheDocument()
+    expect(screen.getByText(/plano growth permite até 5 agentes/i)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /cadastrar agente/i })).not.toBeInTheDocument()
   })
 })

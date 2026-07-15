@@ -133,15 +133,15 @@ function AgentRowComponent({ agente, indice, aoAbrirHistorico, aoSimular }: Agen
             disabled={!podeSimular}
             title={
               motivo === 'cota'
-                ? 'Tentar execução para demonstrar o bloqueio por cota'
+                ? 'Abrir simulação e consultar o limite da cota'
                 : motivo
                   ? `Agente ${motivo}`
-                  : 'Registrar uma execução de demonstração'
+                  : 'Definir execuções e tokens da simulação'
             }
           >
             <Play className="size-3.5" aria-hidden="true" />
             <span className="hidden sm:inline">
-              {motivo === 'cota' ? 'Tentar' : 'Simular'}
+              {motivo === 'cota' ? 'Ver limite' : 'Simular lote'}
             </span>
             <span className="sr-only">execução do agente {agente.nome}</span>
           </button>

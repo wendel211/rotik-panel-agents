@@ -7,6 +7,7 @@ import { ErrorState } from '../../components/ErrorState'
 import { StatusToast, type Aviso } from '../../components/StatusToast'
 import { ApiError, api } from '../../lib/api'
 import type { Agente, DetalhesLimite, SimulacaoExecucao } from '../../types/api'
+import { AgentLimitDialog } from '../agents/AgentLimitDialog'
 import { NewAgentDialog } from '../agents/NewAgentDialog'
 import { useAuth } from '../auth/authContext'
 import { HistoryDialog } from '../executions/HistoryDialog'
@@ -21,6 +22,7 @@ export function DashboardPage() {
   const { sessao, sair } = useAuth()
   const queryClient = useQueryClient()
   const [novoAgenteAberto, setNovoAgenteAberto] = useState(false)
+  const [limiteAgentesAberto, setLimiteAgentesAberto] = useState(false)
   const [agenteHistorico, setAgenteHistorico] = useState<Agente | null>(null)
   const [agenteSimulacao, setAgenteSimulacao] = useState<Agente | null>(null)
   const [erroSimulacao, setErroSimulacao] = useState<string | null>(null)
@@ -93,6 +95,13 @@ export function DashboardPage() {
   const abrirHistorico = useCallback((agente: Agente) => setAgenteHistorico(agente), [])
   const simular = useCallback((agente: Agente) => { setErroSimulacao(null); setAgenteSimulacao(agente) }, [])
   const limiteAgentesAtingido = resumo.limiteAgentes > 0 && resumo.total >= resumo.limiteAgentes
+  const abrirNovoAgente = useCallback(() => {
+    if (limiteAgentesAtingido) {
+      setLimiteAgentesAberto(true)
+      return
+    }
+    setNovoAgenteAberto(true)
+  }, [limiteAgentesAtingido])
 
   async function atualizarPainel() {
     setAviso(null)
@@ -142,7 +151,7 @@ export function DashboardPage() {
               {consulta.isFetching ? 'Atualizando dados do painel' : 'Atualizar dados do painel'}
             </span>
           </button>
-          <button className="button-primary h-9 text-xs" type="button" onClick={() => setNovoAgenteAberto(true)} disabled={limiteAgentesAtingido} title={limiteAgentesAtingido ? `Limite de ${resumo.limiteAgentes} agentes do plano atingido` : undefined}>
+          <button className="button-primary h-9 text-xs" type="button" onClick={abrirNovoAgente} aria-haspopup="dialog" title={limiteAgentesAtingido ? `Ver limite de ${resumo.limiteAgentes} agentes do plano` : undefined}>
             <Plus className="size-3.5" aria-hidden="true" />
             Novo agente
           </button>
@@ -203,7 +212,7 @@ export function DashboardPage() {
                 agentes={agentes}
                 aoAbrirHistorico={abrirHistorico}
                 aoSimular={simular}
-                aoNovoAgente={() => setNovoAgenteAberto(true)}
+                aoNovoAgente={abrirNovoAgente}
               />
             </section>
           </>
@@ -211,6 +220,7 @@ export function DashboardPage() {
       </div>
 
       <NewAgentDialog aberto={novoAgenteAberto} aoFechar={() => setNovoAgenteAberto(false)} limite={resumo.limiteAgentes ? { usado: resumo.total, limite: resumo.limiteAgentes } : undefined} />
+      <AgentLimitDialog aberto={limiteAgentesAberto} plano={resumo.plano} usado={resumo.total} limite={resumo.limiteAgentes} aoFechar={() => setLimiteAgentesAberto(false)} />
       <SimulationDialog agente={agenteSimulacao} enviando={simulacao.isPending} erro={erroSimulacao} aoFechar={() => setAgenteSimulacao(null)} aoConfirmar={(dados) => agenteSimulacao && simulacao.mutate({ agente: agenteSimulacao, dados })} />
       <HistoryDialog agente={agenteHistorico} aoFechar={() => setAgenteHistorico(null)} />
       <LimitDialog detalhes={detalhesLimite} aoFechar={() => setDetalhesLimite(null)} />

@@ -73,8 +73,6 @@ export interface RespostaAgentes {
 
 export interface SimulacaoExecucao {
   quantidadeExecucoes: number
-  tokensEntrada: number
-  tokensSaida: number
 }
 
 export type StatusExecucao = 'sucesso' | 'erro' | 'bloqueada'

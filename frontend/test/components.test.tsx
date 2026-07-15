@@ -141,7 +141,7 @@ describe('agentes e limite', () => {
     const bloqueado = agente({ bloqueado: true })
     rerender(<AgentRow agente={bloqueado} indice={0} simulando={false} aoSimular={simular} aoAbrirHistorico={historico} />)
     expect(screen.getByText(/bloqueado por cota/i)).toBeInTheDocument()
-    expect(screen.getByText('Tentar')).toBeInTheDocument()
+    expect(screen.getByText('Ver limite')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /execução do agente/i }))
     expect(simular).toHaveBeenCalledWith(bloqueado)
     rerender(<AgentRow agente={agente({ status: 'pausado', ultimaExecucaoEm: null, descricao: null })} indice={0} simulando={false} aoSimular={simular} aoAbrirHistorico={historico} />)

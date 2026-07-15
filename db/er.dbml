@@ -26,7 +26,7 @@ Project rotik_panel_agents {
 // ---------------------------------------------------------------------
 Table planos {
   id uuid [pk, default: `gen_random_uuid()`]
-  nome text [not null, note: 'UNIQUE sobre lower(nome). Starter, Growth, Scale']
+  nome text [not null, note: 'UNIQUE sobre lower(nome). Starter, Growth, Pro']
   limite_execucoes_mensal integer [not null, note: 'CHECK > 0. A cota do pool.']
   limite_agentes integer [not null, default: 10, note: 'Growth = 5; Pro = 10.']
   ativo boolean [not null, default: true]
