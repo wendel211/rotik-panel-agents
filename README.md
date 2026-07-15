@@ -28,8 +28,8 @@ por isso que o histórico de commits é granular.
 | Etapa | Entrega | Status |
 |---|---|---|
 | **0** | **Discovery** | ✅ |
-| 1 | Modelagem de dados | ⏳ Próxima |
-| 2 | Backend REST API | ⏳ |
+| **1** | **Modelagem de dados** | ✅ |
+| 2 | Backend REST API | ⏳ Próxima |
 | 3 | Frontend (SPA) | ⏳ |
 | 4 | Integração | ⏳ |
 | 5 | Qualidade, testes e debug | ⏳ |
@@ -46,6 +46,11 @@ no formato `<tipo>(<escopo>): <descrição no imperativo>`.
   - [Entidades de negócio](#2-entidades-de-negócio)
   - [Escopo do MVP](#3-escopo-do-mvp)
   - [Riscos que decidi não resolver agora](#4-riscos-que-decidi-não-resolver-agora)
+- [Etapa 1: Modelagem de dados](#etapa-1-modelagem-de-dados)
+  - [Diagrama ER](#diagrama-er)
+  - [Decisões de modelagem](#decisões-de-modelagem)
+  - [Uso mensal sem COUNT(\*)](#uso-mensal-sem-count)
+  - [Verificação empírica](#verificação-empírica)
 
 ---
 
@@ -290,3 +295,290 @@ A FK composta protege a **escrita** (ver Etapa 1), mas não faz nada por um `SEL
 filtro. Sigo porque o Postgres nunca é exposto direto ao usuário final nesta arquitetura, então a
 superfície é só o nosso próprio código. Fica registrado porque é uma dívida real: se um dia a base for
 exposta via PostgREST ou similar, RLS deixa de ser opcional.
+
+---
+
+# Etapa 1: Modelagem de dados
+
+Fonte da verdade: [`db/init/01_schema.sql`](db/init/01_schema.sql)
+SQL comentado da regra central: [`db/queries/registrar_execucao.sql`](db/queries/registrar_execucao.sql)
+
+## Diagrama ER
+
+```mermaid
+erDiagram
+    PLANOS ||--o{ CLIENTES  : "é contratado por"
+    CLIENTES ||--o{ AGENTES : "possui"
+    AGENTES ||--o{ EXECUCOES : "gera"
+    CLIENTES ||--o{ EXECUCOES : "é tenant de"
+
+    PLANOS {
+        uuid        id PK
+        text        nome UK "unique sobre lower(nome)"
+        integer     limite_execucoes_mensal "CHECK > 0, a cota do pool"
+        boolean     ativo
+        timestamptz criado_em
+        timestamptz atualizado_em
+    }
+
+    CLIENTES {
+        uuid        id PK "fronteira de tenant, vem do JWT"
+        text        nome
+        text        email UK "unique sobre lower(email)"
+        text        senha_hash "bcrypt"
+        uuid        plano_id FK "ON DELETE RESTRICT"
+        integer     execucoes_mes_atual "CONSOLIDADO, base do enforcement"
+        date        periodo_referencia "competência do contador (UTC)"
+        timestamptz criado_em
+        timestamptz atualizado_em
+    }
+
+    AGENTES {
+        uuid        id PK
+        uuid        cliente_id FK "ON DELETE CASCADE"
+        text        nome "unique por cliente, ignora arquivados"
+        text        descricao
+        text        status "ativo, pausado, arquivado"
+        integer     execucoes_mes_atual "CONSOLIDADO, atribuição"
+        date        periodo_referencia "competência do contador (UTC)"
+        bigint      total_execucoes "CONSOLIDADO, vitalício"
+        timestamptz ultima_execucao_em
+        timestamptz criado_em
+        timestamptz atualizado_em
+    }
+
+    EXECUCOES {
+        uuid        id PK
+        uuid        agente_id FK "FK COMPOSTA com cliente_id"
+        uuid        cliente_id FK "desnormalizado, garantido pela FK composta"
+        text        status "sucesso, erro, bloqueada"
+        integer     duracao_ms
+        integer     tokens_entrada
+        integer     tokens_saida
+        text        mensagem_erro
+        timestamptz criado_em "chave de paginação keyset"
+    }
+```
+
+<details>
+<summary><b>Versão gerada no dbdiagram.io</b> (mesmo modelo, layout visual)</summary>
+
+![Modelo ER](docs/er.png)
+
+Fonte em [`db/er.dbml`](db/er.dbml). Para editar, cole o conteúdo em <https://dbdiagram.io/d>.
+
+> O `01_schema.sql` é a fonte da verdade. O Mermaid acima e o DBML são representações derivadas e
+> precisam ser regerados quando o schema mudar.
+</details>
+
+## Decisões de modelagem
+
+### Normalização, e as três exceções deliberadas
+
+O modelo está em 3FN, com três desnormalizações conscientes:
+
+| Desnormalização | O que compra | O que custa |
+|---|---|---|
+| `clientes.execucoes_mes_atual` | Leitura de cota em O(1) em vez de `COUNT(*)` | Precisa ser mantido em transação |
+| `agentes.execucoes_mes_atual` e `total_execucoes` | Atribuição por agente e total da paginação sem `COUNT(*)` | Idem |
+| `execucoes.cliente_id` | Isolamento de tenant e índice sem JOIN | Poderia divergir de `agentes.cliente_id`, mas não pode (abaixo) |
+
+**A terceira não custa nada, e isso é de propósito.** `execucoes.cliente_id` é derivável via `agentes`,
+mas é **imutável**, porque uma execução nunca troca de dono. Não existe `UPDATE` que possa fazê-la
+divergir. Falta só impedir que ela nasça errada, e quem impede é o banco:
+
+```sql
+CONSTRAINT execucoes_agente_fk FOREIGN KEY (agente_id, cliente_id)
+  REFERENCES agentes (id, cliente_id) ON DELETE CASCADE
+```
+
+Essa FK composta, viabilizada pelo `UNIQUE (id, cliente_id)` em `agentes`, torna **fisicamente
+impossível** gravar uma execução do agente do cliente A sob o cliente B. Em multi-tenant, esse tipo de
+invariante não deveria depender de o desenvolvedor lembrar de escrever o `WHERE` certo.
+
+<details>
+<summary>Relacionamentos, tipos e a política de exclusão</summary>
+
+**Relacionamentos**
+
+- `planos → clientes` é `ON DELETE RESTRICT`. Apagar um plano com clientes ativos deve doer, não
+  cascatear.
+- `clientes → agentes → execucoes` é `ON DELETE CASCADE`. Off-boarding de cliente remove tudo em um
+  comando, o que ajuda em LGPD.
+
+**Política de exclusão de agente.** O CASCADE acima significa que apagar um agente apagaria o histórico
+dele, inclusive as linhas `bloqueada` que são auditoria. Isso conflitaria com o "precisamos saber que
+isso aconteceu" do briefing. A saída **não** é trocar por `RESTRICT`, porque isso quebraria a cadeia de
+off-boarding do cliente: a exclusão do cliente falharia ao esbarrar nas execuções. A proteção vem de
+uma regra de aplicação: **agente nunca é apagado, é arquivado**. A única remoção legítima é a do
+cliente inteiro saindo da base.
+
+**`status` como `text` + `CHECK`, e não `ENUM`.** `ENUM` nativo dá 4 bytes e type safety, mas
+`ALTER TYPE ... ADD VALUE` tem restrições transacionais desagradáveis em migração. Um domínio que ainda
+vai mudar (`pausado` e `arquivado` são suposições minhas) evolui melhor como `CHECK`, que é só um
+`ALTER TABLE`. Troca consciente de performance marginal por evolvabilidade.
+</details>
+
+### Índices
+
+Cada índice existe para uma query nomeada, não por precaução:
+
+| Índice | Query que ele serve |
+|---|---|
+| `execucoes (agente_id, criado_em DESC, id DESC)` | Histórico paginado por keyset, a query mais quente |
+| `execucoes (cliente_id, criado_em DESC, id DESC)` | Últimas execuções da conta, para diagnóstico do CS |
+| `execucoes (cliente_id, criado_em DESC) WHERE status='bloqueada'` | **Parcial.** Bloqueios são menos de 1% das linhas mas são o que o CS caça. Índice pequeno e barato |
+| `agentes (cliente_id, criado_em DESC)` | Dashboard |
+| `agentes (cliente_id, lower(nome)) WHERE status<>'arquivado'` | **Único parcial.** Nome único por cliente, mas libera o nome ao arquivar |
+| `clientes (lower(email))`, `planos (lower(nome))` | **Únicos.** Comparação case-insensitive |
+
+**Por que `id` entra na chave do keyset:** `criado_em` não é único. Duas execuções no mesmo
+milissegundo tornariam a ordenação instável e uma linha poderia ser pulada ou repetida entre páginas.
+`(criado_em, id)` é uma chave total.
+
+**Índice que deliberadamente não criei:** nenhum sobre `execucoes.status` sozinho. São 3 valores, e com
+cardinalidade tão baixa o planner ignoraria. O caso que importa já está coberto pelo índice parcial.
+
+## Uso mensal sem COUNT(*)
+
+Este é o requisito crítico de performance do desafio.
+
+### O problema com COUNT(*) em tempo real
+
+O caminho ingênuo seria:
+
+```sql
+-- Nunca no código deste projeto
+SELECT COUNT(*) FROM execucoes
+ WHERE cliente_id = $1 AND criado_em >= date_trunc('month', now());
+```
+
+Isso funciona no seed e falha em produção, por três motivos:
+
+1. **Custo O(n) no sucesso do cliente.** Postgres não tem contagem O(1). Mesmo com índice é preciso
+   varrer as entradas do mês e checar visibilidade, porque o MVCC não guarda contagem no índice. O
+   cliente com 500 mil execuções por mês tem o dashboard mais lento, ou seja, **o cliente que mais paga
+   tem a pior experiência**. A performance degrada exatamente na direção em que o negócio cresce.
+2. **Roda no caminho crítico.** Pela suposição 3, a checagem de cota acontece antes de cada resposta de
+   agente. Uma varredura por atendimento é latência direta no produto.
+3. **Não resolve a corrida**, que é o problema mais sério e o que costuma passar batido.
+
+### A solução: contador consolidado com reset preguiçoso
+
+**Consolidação.** O contador vive na linha do cliente e é atualizado na mesma transação que grava a
+execução. Ler a cota vira uma leitura por chave primária: O(1), constante, indiferente ao volume.
+
+**Reset preguiçoso, sem cron.** O par `(execucoes_mes_atual, periodo_referencia)` é lido como: o
+contador vale `execucoes_mes_atual` **se** `periodo_referencia` for a competência atual, senão vale 0.
+
+Isso elimina o job de virada de mês, que precisaria acordar à meia-noite UTC, tocar todas as linhas e
+ainda seria um ponto de falha silencioso, porque se não rodasse todo mundo continuaria bloqueado. O
+reset acontece sozinho, por cliente, na primeira execução do mês.
+
+O preço é que **quem lê também precisa aplicar a regra**, senão um cliente inativo em julho apareceria
+em agosto ainda exibindo o consumo de julho. Por isso ela está encapsulada na view `vw_agentes_consumo`
+em vez de repetida em cada query.
+
+### A parte que realmente importa: a corrida
+
+Um contador consolidado não basta. Este código está errado:
+
+```ts
+// check-then-act, bug de concorrência clássico
+const { usado, limite } = await getConsumo(clienteId);
+if (usado >= limite) return res.status(429).json(...);
+await registrarExecucao(...);   // outro request pode ter entrado aqui
+```
+
+Dois requests concorrentes leem `99/100`, ambos concluem que tem espaço, ambos incrementam, e o
+resultado é `101/100`. A cota vaza **exatamente sob a carga em que o limite mais importa**, e um teste
+sequencial nunca pega isso.
+
+A correção é fazer a verificação e o incremento serem a **mesma operação**, colocando o limite no
+`WHERE` do próprio `UPDATE`:
+
+```sql
+UPDATE clientes c
+   SET execucoes_mes_atual =
+         CASE WHEN c.periodo_referencia = periodo_atual()
+              THEN c.execucoes_mes_atual + 1
+              ELSE 1                      -- reset preguiçoso
+         END,
+       periodo_referencia = periodo_atual()
+  FROM planos p
+ WHERE c.id = $1
+   AND c.plano_id = p.id
+   AND (CASE WHEN c.periodo_referencia = periodo_atual()
+             THEN c.execucoes_mes_atual
+             ELSE 0
+        END) < p.limite_execucoes_mensal   -- o limite, dentro do WHERE
+RETURNING c.execucoes_mes_atual AS usado, p.limite_execucoes_mensal AS limite;
+```
+
+O Postgres pega um row lock na linha do cliente e reavalia o `WHERE` contra a versão já commitada
+(EvalPlanQual), serializando os concorrentes. O segundo request enxerga `100/100`, o `WHERE` falha, e o
+`UPDATE` afeta zero linhas. O resultado vira o contrato do endpoint, sem ambiguidade:
+
+- **1 linha** significa cota consumida, grava a execução e responde `201`.
+- **0 linhas** significa limite atingido, grava a execução como `bloqueada` e responde `429`.
+
+Não precisa de `SERIALIZABLE`, nem de advisory lock, nem de retry. Uma declaração, uma linha, um lock.
+**Este é o núcleo do desafio, e ele é resolvido no banco, não no TypeScript.**
+
+<details>
+<summary>Duas premissas que essa garantia carrega</summary>
+
+1. **Vale por linha, e só se todo caminho de escrita passar por esse UPDATE.** Um script de correção
+   manual, um import em massa ou um retry que reemita um incremento cru furam a proteção inteira.
+2. **Depende de READ COMMITTED**, que é o default do Postgres. Sob REPEATABLE READ ou SERIALIZABLE o
+   mesmo statement lançaria erro `40001` em vez de retornar 0 linhas. Continua correto, nada estoura a
+   cota, mas o modo de falha muda e a aplicação passaria a precisar de retry. Se um pooler ou ORM
+   alterar o isolamento padrão, a Etapa 2 quebra de forma silenciosa.
+</details>
+
+### O balanço da troca
+
+| | `COUNT(*)` em tempo real | Contador consolidado |
+|---|---|---|
+| Leitura da cota | **O(execuções no mês)** | **O(1)** |
+| Escrita | 1 `INSERT` | 1 `INSERT` + 2 `UPDATE`, mesma transação |
+| Corrida sob concorrência | **Presente** | **Eliminada por construção** |
+| Virada de mês | Automática | Reset preguiçoso |
+| Risco | Nenhum de corretude | Contador pode divergir dos fatos |
+
+Trocamos um custo **que cresce sem limite** por um custo **fixo**, e um risco de corretude por um risco
+de consistência, que é observável e reconciliável porque as execuções seguem registradas.
+
+Resultado: `GET /agents` inteiro, com consumo, limite, percentual e estado bloqueado de todos os
+agentes, é **um index scan em `agentes` mais lookups por PK**. Zero `COUNT(*)`, zero `GROUP BY`, custo
+independente do histórico do cliente.
+
+## Verificação empírica
+
+Afirmar que "o `UPDATE` condicional elimina a corrida" é fácil. Um argumento sobre concorrência que não
+foi executado é só uma hipótese bem escrita. Rodei os dois padrões contra PostgreSQL 16 real, com 40
+conexões concorrentes de verdade, contra o cliente do seed em `82/100`, ou seja, 18 vagas restantes:
+
+| Padrão | Aceitos | Contador final | Cota vazou? |
+|---|---|---|---|
+| **`UPDATE` condicional** (implementado) | **18** ✅ | **100 / 100** | **Não** |
+| `SELECT` → `if` → `UPDATE` (ingênuo) | 30 ❌ | **112 / 100** | **Sim, 12 execuções não faturadas** |
+
+No caminho atômico os valores retornados pelo `RETURNING` foram exatamente `83, 84, ... 100`, cada um
+uma única vez, sem nenhum lost update. As 22 tentativas excedentes receberam `UPDATE 0`, que é
+precisamente o sinal de `429`.
+
+O caminho ingênuo, sob a mesma carga, deixou passar 12 execuções além do limite. Em produção isso é
+inferência que a Rotik paga ao provedor de LLM e não fatura. **Um teste sequencial passaria nos dois.**
+
+Também verificado no mesmo ambiente:
+
+- **Reset preguiçoso na leitura.** Cliente com `periodo_referencia = 2026-06-01` e contador `95` é lido
+  pela view como `0` na competência de julho, sem cron e sem job de virada.
+- **Reset preguiçoso na escrita.** A primeira execução do novo mês reinicia o contador em `1`.
+- **Isolamento de tenant.** `INSERT` de uma execução do agente da Acme sob o `cliente_id` da Globex é
+  recusado pelo banco com `violates foreign key constraint "execucoes_agente_fk"`.
+- **Unicidade case-insensitive.** Inserir o plano `growth` com `Growth` já existente é recusado.
+
+> Os testes automatizados da Etapa 5 formalizam esses cenários, inclusive o de concorrência, para que a
+> regra não regrida em silêncio.
