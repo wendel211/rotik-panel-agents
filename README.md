@@ -30,8 +30,8 @@ por isso que o histórico de commits é granular.
 | **0** | **Discovery** | ✅ |
 | **1** | **Modelagem de dados** | ✅ |
 | **2** | **Backend REST API** | ✅ |
-| 3 | Frontend (SPA) | ⏳ Próxima |
-| 4 | Integração | ⏳ |
+| **3** | **Frontend (SPA)** | ✅ |
+| **4** | **Integração com a API real** | ✅ |
 | 5 | Qualidade, testes e debug | ⏳ |
 | 6 | DevOps (CI, deploy, env) | ⏳ |
 | 7 | Mentalidade de produto | ⏳ |
@@ -55,6 +55,12 @@ no formato `<tipo>(<escopo>): <descrição no imperativo>`.
   - [Endpoints](#endpoints)
   - [Decisões de arquitetura](#decisões-de-arquitetura)
   - [Rodando localmente](#rodando-localmente)
+- [Etapas 3 e 4: Frontend e integração](#etapas-3-e-4-frontend-e-integração)
+  - [Arquitetura de estado](#arquitetura-de-estado)
+  - [Cota do cliente e atribuição por agente](#cota-do-cliente-e-atribuição-por-agente)
+  - [Erros e estados da interface](#erros-e-estados-da-interface)
+  - [Acessibilidade, responsividade e performance](#acessibilidade-responsividade-e-performance)
+  - [Rodando o frontend](#rodando-o-frontend)
 
 ---
 
@@ -699,3 +705,101 @@ curl -s localhost:3333/agents -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 > Instruções completas de execução, `.env.example` comentado e deploy entram na Etapa 6.
+
+---
+
+# Etapas 3 e 4: Frontend e integração
+
+SPA em React 19, TypeScript estrito, Vite, Tailwind CSS, TanStack Query e Zod. O código está em
+[`frontend/`](frontend/) e consome exclusivamente a API real da Etapa 2. Não há mocks estáticos.
+
+A composição começa pela superfície de trabalho que o CS precisa operar: a cota compartilhada da conta,
+os agentes ordenados abaixo dela e as ações de diagnóstico no contexto de cada agente. A interface usa o
+azul da Rotik como único destaque de marca, reservando verde, amarelo e vermelho para significado de
+estado.
+
+## Arquitetura de estado
+
+Há três naturezas de estado e cada uma fica no lugar com o ciclo de vida adequado:
+
+| Estado | Onde vive | Justificativa |
+|---|---|---|
+| Agentes, consumo e histórico | **TanStack Query** | São dados do servidor. A biblioteca controla cache, latência, invalidação e novas tentativas sem duplicar a fonte de verdade em uma store. |
+| Sessão autenticada | **Contexto React + `localStorage`** | Token e cliente precisam ser lidos por qualquer chamada da aplicação. É o único estado realmente global. O armazenamento local é uma simplificação coerente com o JWT simples aceito pelo desafio; uma versão de produção usaria cookie `httpOnly` e refresh token. |
+| Modal aberto, agente selecionado, formulário e avisos | **Estado local** | São estados efêmeros, pertencem a uma única árvore visual e não justificam uma store global. |
+
+As fronteiras da API têm tipos explícitos em [`frontend/src/types/api.ts`](frontend/src/types/api.ts).
+O cliente HTTP centraliza o header de autenticação, o envelope de erro e a falha de rede. Nenhuma tela
+interpreta mensagens humanas para decidir comportamento.
+
+## Cota do cliente e atribuição por agente
+
+A decisão central do Discovery aparece diretamente na hierarquia visual:
+
+1. Existe **uma única barra principal**, alimentada por `execucoesMesCliente`, `limiteMensal` e
+   `percentualUsoCliente`. Ela representa o pool que bloqueia a conta inteira.
+2. Cada linha de agente mostra `execucoesMesAgente`, a atribuição necessária para descobrir quem está
+   consumindo a cota. A barra menor usa `execucoesMesAgente / limiteMensal`, portanto varia por agente e
+   nunca repete o percentual global.
+3. A indicação de bloqueio cruza dois campos. `bloqueado && status === 'ativo'` significa cota esgotada.
+   `status === 'pausado'` e `status === 'arquivado'` recebem rótulos próprios e nunca são apresentados
+   como bloqueio de plano.
+
+O botão **Simular execução** é identificado como recurso de demonstração. O painel é de monitoramento,
+mas o projeto não contém um runtime de IA. Sem essa ação, o avaliador não conseguiria observar o
+enforcement central. Quando a cota já acabou, o botão muda para **Tentar execução** e permanece disponível
+somente para agentes ativos, permitindo gerar a tentativa `bloqueada` que deve aparecer na auditoria.
+
+## Erros e estados da interface
+
+O frontend ramifica por `erro.codigo`, nunca por `erro.mensagem`:
+
+- `AGENTE_JA_EXISTE` marca o campo `nome` no formulário.
+- `DADOS_INVALIDOS` distribui a lista de detalhes nos campos correspondentes.
+- `NAO_AUTENTICADO` e `TOKEN_EXPIRADO` encerram a sessão e retornam ao login.
+- `LIMITE_PLANO_ATINGIDO` abre um diálogo dedicado com consumo, limite, liberação prevista e o efeito
+  sobre todos os agentes. A tentativa bloqueada é invalidada no cache do histórico imediatamente.
+- `AGENTE_INATIVO` e demais falhas previstas preservam a tela e mostram uma mensagem contextual.
+- Falhas de rede têm um estado recuperável com ação para tentar novamente. Nenhum erro resulta em tela
+  branca.
+
+O histórico usa `useInfiniteQuery` e devolve ao backend o cursor opaco. A interface oferece apenas
+**Carregar mais** enquanto `proximoCursor` existir. Não há total de itens, páginas numeradas ou `OFFSET`
+inventado no cliente.
+
+Loading do dashboard e do histórico usa skeletons explícitos. A lista vazia orienta o cadastro do
+primeiro agente. Mutações mostram progresso no próprio botão para evitar duplo envio.
+
+## Acessibilidade, responsividade e performance
+
+- HTML semântico com cabeçalhos em ordem, listas, labels, `time` e `progressbar` com valores acessíveis.
+- Foco visível em toda a aplicação e alvos de toque adequados.
+- Diálogos nativos com retenção de foco, fechamento por `Escape` e devolução do foco ao acionador.
+- Avisos com regiões `status` ou `alert`, conforme a urgência.
+- Layout verificado em 1440 x 900 e 390 x 844, com ações e métricas reorganizadas sem rolagem horizontal.
+- `prefers-reduced-motion` desativa animações para quem solicita movimento reduzido.
+- `AgentRow` é memoizado. Dados do servidor usam cache e invalidação pontual, e a paginação limita o
+  histórico a 20 itens por request.
+
+## Rodando o frontend
+
+Com o banco e a API já iniciados conforme a Etapa 2:
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev          # http://localhost:5173
+```
+
+`VITE_API_URL` define a origem da API e vale `http://localhost:3333` no ambiente local. As credenciais
+de demonstração continuam sendo `cs@acme.dev` / `senha123` e `cs@globex.dev` / `senha123`.
+
+Verificações disponíveis nesta etapa:
+
+```bash
+cd frontend
+npm run typecheck
+npm run lint
+npm run build
+```
