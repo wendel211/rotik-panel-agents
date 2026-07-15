@@ -1,4 +1,4 @@
-import { Activity, Archive, CalendarClock, CirclePause, ShieldX } from 'lucide-react'
+import { Activity, Archive, CalendarClock, CirclePause, FlaskConical, History, LoaderCircle, ShieldX } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { memo } from 'react'
 
@@ -8,6 +8,9 @@ import type { Agente } from '../../types/api'
 interface AgentRowProps {
   agente: Agente
   indice: number
+  simulando: boolean
+  aoAbrirHistorico: (agente: Agente) => void
+  aoSimular: (agente: Agente) => void
 }
 
 function obterStatus(agente: Agente) {
@@ -23,7 +26,7 @@ function obterStatus(agente: Agente) {
   return { rotulo: 'Ativo', Icone: Activity, classe: 'bg-emerald-50 text-emerald-800 ring-emerald-200' }
 }
 
-function AgentRowComponent({ agente, indice }: AgentRowProps) {
+function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimular }: AgentRowProps) {
   const reduzirMovimento = useReducedMotion()
   const status = obterStatus(agente)
   const percentualAgente = Math.min(
@@ -60,7 +63,8 @@ function AgentRowComponent({ agente, indice }: AgentRowProps) {
         </div>
       </div>
 
-      <div className="rounded-2xl bg-slate-50 px-5 py-4">
+      <div>
+        <div className="rounded-2xl bg-slate-50 px-5 py-4">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500">Consumo deste agente</p>
@@ -79,6 +83,24 @@ function AgentRowComponent({ agente, indice }: AgentRowProps) {
         <p className="sr-only">
           Este agente consumiu {agente.consumo.execucoesMesAgente} das {agente.consumo.limiteMensal} execuções disponíveis no pool do cliente.
         </p>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+          <button className="flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950" type="button" onClick={() => aoAbrirHistorico(agente)}>
+            <History className="size-4" aria-hidden="true" />
+            Ver histórico
+          </button>
+          <button
+            className="flex h-9 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-semibold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+            type="button"
+            onClick={() => aoSimular(agente)}
+            disabled={agente.status !== 'ativo' || simulando}
+            title={agente.status !== 'ativo' ? 'Agentes inativos não aceitam execuções' : 'Recurso de demonstração'}
+          >
+            {simulando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <FlaskConical className="size-4" aria-hidden="true" />}
+            {simulando ? 'Simulando...' : agente.bloqueado ? 'Tentar execução' : 'Simular execução'}
+            {!simulando && <span className="rounded bg-blue-200/70 px-1.5 py-0.5 text-[0.62rem] uppercase tracking-wide">Demo</span>}
+          </button>
+        </div>
       </div>
     </motion.li>
   )
