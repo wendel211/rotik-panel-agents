@@ -215,3 +215,35 @@ discussão** — modelar demais é tão caro quanto modelar de menos:
   hoje?", que é literalmente a pergunta que o CS faz.
 
 ---
+
+## 3. Escopo do MVP
+
+### ✅ Dentro
+
+| Item | Por quê |
+|---|---|
+| Cadastro e listagem de agentes | Pedido explícito. |
+| Registro de execução com **enforcement atômico de cota** | **É a regra central do desafio.** Todo o resto é acessório. |
+| Bloqueio com status HTTP adequado + registro da tentativa recusada | Atende às duas leituras do parêntese do briefing de uma vez só. |
+| Histórico de execuções paginado | Pedido explícito. É como o CS diagnostica. |
+| Autenticação simplificada + isolamento por cliente | Sem isso, um "painel de CS" é um vazamento de dados entre contas. |
+| Dashboard com % de consumo e indicação visual de bloqueio | É a tela que resolve a dor descrita no briefing. |
+| Estados de loading, vazio e erro na UI | O briefing pede "fácil de usar". Uma tela branca sob falha não é. |
+| Testes da regra de bloqueio | É a única regra cuja falha custa dinheiro diretamente. |
+| Log estruturado na ação de bloqueio | Pedido explícito, e é o evento que o negócio precisa auditar. |
+| CI com lint + testes | Pedido explícito. |
+
+### ❌ Fora (e por quê)
+
+| Item | Por que fica fora |
+|---|---|
+| **Runtime do agente de IA** | O desafio é o painel de monitoramento. A execução é simulada pelo endpoint de registro. |
+| **Cobrança / overage / proração** | Depende inteiramente da pergunta 5 (ciclo mensal). Modelar billing sem definição de ciclo é construir a coisa errada com precisão. |
+| **Alertas ativos (e-mail/Slack em 80%)** | Reconheço que provavelmente é o item de **maior valor real** — o briefing diz "ser **alertados**", e alerta é push, não tela. Mas exige canal, destinatário, deduplicação e antispam, nenhum deles definido. O MVP entrega o **threshold visual em 80%**; o alerta ativo é o passo seguinte óbvio. |
+| **Painel multi-tenant de CS** | Ver pergunta 2. É aditivo depois, e a ordem inversa seria insegura. |
+| **Gestão de planos pela UI** | Planos mudam raramente e são decisão comercial. Seed + SQL resolve. |
+| **Conversão de tokens em R$** | O dado de token é capturado para não se perder, mas precificação não foi especificada. |
+| **Retenção / particionamento do histórico** | Só importa em outra ordem de grandeza. Ver riscos. |
+| **Refresh token / RBAC / OAuth** | O desafio dispensa explicitamente: "uma simplificação documentada é aceitável". |
+
+---
