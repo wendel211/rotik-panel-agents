@@ -1,9 +1,11 @@
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+import swaggerUi from 'swagger-ui-express';
 
 import { env } from './config/env';
 import { checkDatabaseConnection } from './db/pool';
+import { openApiDocument } from './docs/openapi';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import { agentsRouter } from './modules/agents/agents.module';
 import { authRouter } from './modules/auth/auth.module';
@@ -14,6 +16,19 @@ export function criarApp(): express.Express {
   const app = express();
 
   app.disable('x-powered-by');
+  // A UI vem antes do Helmet porque o Swagger usa scripts e estilos inline.
+  // Mantemos os demais headers de segurança nela; o restante da API continua
+  // recebendo também a política CSP restritiva global.
+  app.use(['/docs', '/docs.json'], helmet({ contentSecurityPolicy: false }));
+  app.get('/docs.json', (_req, res) => res.json(openApiDocument));
+  app.use(
+    '/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(openApiDocument, {
+      customSiteTitle: 'Rotik Panel Agents API',
+      swaggerOptions: { persistAuthorization: true, displayRequestDuration: true },
+    }),
+  );
   app.use(helmet());
   app.use(
     cors({

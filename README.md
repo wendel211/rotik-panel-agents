@@ -3,7 +3,7 @@
 Painel fullstack para acompanhar agentes de IA por cliente, registrar execuções e impedir consumo acima
 da cota mensal contratada. O projeto foi desenvolvido para o desafio técnico fullstack da Rotik.
 
-**Produção:** [Frontend na Vercel](https://rotik-panel-agents.vercel.app) | [Healthcheck da API](https://rotik-agents-api-wendel211.onrender.com/health)
+**Produção:** [Frontend na Vercel](https://rotik-panel-agents.vercel.app) | [Documentação da API](https://rotik-agents-api-wendel211.onrender.com/docs) | [Healthcheck da API](https://rotik-agents-api-wendel211.onrender.com/health)
 
 **Modelo de dados:** [diagrama público no dbdiagram.io](https://dbdiagram.io/d/modeloER-6a56e578067336e1de76f9d3)
 
@@ -189,6 +189,10 @@ npm --prefix frontend run dev
 ```
 
 Abra `http://localhost:5173`. A API estará em `http://localhost:3333`.
+
+A documentação interativa Swagger fica em `http://localhost:3333/docs`. Para testar rotas protegidas,
+faça login pela própria página, copie o `token`, clique em **Authorize** e informe somente o JWT. O
+contrato OpenAPI em JSON também está disponível em `http://localhost:3333/docs.json`.
 
 Se você já estiver dentro da pasta `backend`, execute `npm ci` e `npm run dev`, sem o prefixo. Usar
 `npm --prefix backend` de dentro dela procura incorretamente por `backend/backend/package.json`.

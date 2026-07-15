@@ -14,6 +14,21 @@ afterAll(() => pool.end());
 
 describe('API HTTP', () => {
   it('expõe healthcheck real e envelope 404', async () => {
+    const docs = await request(app).get('/docs.json');
+    expect(docs.status).toBe(200);
+    expect(docs.body).toMatchObject({
+      openapi: '3.0.3',
+      paths: {
+        '/health': { get: expect.any(Object) },
+        '/auth/login': { post: expect.any(Object) },
+        '/agents': { get: expect.any(Object), post: expect.any(Object) },
+        '/agents/{id}/executions': { get: expect.any(Object), post: expect.any(Object) },
+      },
+    });
+    const swagger = await request(app).get('/docs/');
+    expect(swagger.status).toBe(200);
+    expect(swagger.text).toContain('Rotik Panel Agents API');
+
     const health = await request(app).get('/health');
     expect(health.status).toBe(200);
     expect(health.body).toMatchObject({ status: 'ok', banco: 'ok' });
