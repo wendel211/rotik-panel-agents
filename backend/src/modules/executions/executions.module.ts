@@ -26,10 +26,11 @@ const paramsSchema = z.object({
  * upsell.
  */
 const registrarExecucaoSchema = z.object({
+  quantidadeExecucoes: z.number().int().min(1).max(1000).default(1),
   status: z.enum(['sucesso', 'erro']).default('sucesso'),
   duracaoMs: z.number().int().nonnegative().max(600_000).optional(),
-  tokensEntrada: z.number().int().nonnegative().optional(),
-  tokensSaida: z.number().int().nonnegative().optional(),
+  tokensEntrada: z.number().int().nonnegative().max(10_000_000).optional(),
+  tokensSaida: z.number().int().nonnegative().max(10_000_000).optional(),
   mensagemErro: z.string().trim().max(1000).optional(),
 }).refine((d) => d.status === 'erro' || !d.mensagemErro, {
   message: 'mensagemErro só pode ser enviada quando status é "erro".',
@@ -96,6 +97,7 @@ executionsRouter.post(
           agenteId,
           usado: resultado.usado,
           limite: resultado.limite,
+          quantidadeExecucoes: dados.quantidadeExecucoes,
         },
         'Execução bloqueada: limite mensal do plano atingido',
       );
@@ -110,6 +112,7 @@ executionsRouter.post(
     res.status(201).json({
       data: {
         ...resultado.execucao,
+        quantidadeExecucoes: dados.quantidadeExecucoes,
         consumo: {
           usado: resultado.usado,
           limite: resultado.limite,

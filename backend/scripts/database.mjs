@@ -11,6 +11,7 @@ import pg from 'pg';
 const arquivos = {
   schema: '01_schema.sql',
   'seed-demo': '02_seed.sql',
+  'usage-limits': '03_usage_limits.sql',
 };
 
 const acao = process.argv[2];
@@ -83,13 +84,40 @@ try {
     }
   }
 
+  async function adotarSchemaLegado() {
+    const [registro, tabelas] = await Promise.all([
+      client.query('SELECT 1 FROM schema_migrations WHERE nome = $1', ['001_schema']),
+      client.query(`
+        SELECT to_regclass('public.planos') AS planos,
+               to_regclass('public.clientes') AS clientes,
+               to_regclass('public.agentes') AS agentes,
+               to_regclass('public.execucoes') AS execucoes
+      `),
+    ]);
+
+    const baseCompleta = Object.values(tabelas.rows[0]).every(Boolean);
+    if (registro.rowCount || !baseCompleta) return;
+
+    const conteudo = await readFile(localizar(arquivos.schema), 'utf8');
+    const checksum = createHash('sha256').update(conteudo).digest('hex');
+    await client.query(
+      'INSERT INTO schema_migrations (nome, checksum) VALUES ($1, $2) ON CONFLICT (nome) DO NOTHING',
+      ['001_schema', checksum],
+    );
+    console.info('Schema legado reconhecido como migração 001, sem alterar os dados existentes.');
+  }
+
   if (acao === 'schema' || acao === 'deploy') {
+    await adotarSchemaLegado();
     await aplicarMigracao('001_schema', arquivos.schema);
   }
   if (acao === 'seed-demo' || (acao === 'deploy' && process.env.ALLOW_DEMO_SEED === 'true')) {
     await aplicarMigracao('002_seed_demo', arquivos['seed-demo']);
   } else if (acao === 'deploy') {
     console.info('Seed de demonstração não solicitado.');
+  }
+  if (acao === 'schema' || acao === 'deploy') {
+    await aplicarMigracao('003_usage_limits', arquivos['usage-limits']);
   }
 } finally {
   await client.end();

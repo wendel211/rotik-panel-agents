@@ -5,8 +5,8 @@
 --  Etapa 2 (backend) executa, porque a corretude da regra de negócio central
 --  está no SQL, não no TypeScript.
 --
---  Contrato: registrar uma execução e consumir 1 unidade de cota é uma
---  operação atômica. Ou as duas coisas acontecem, ou nenhuma.
+--  Contrato: registrar um lote e consumir :quantidade unidades de cota é uma
+--  operação atômica. O lote inteiro é aceito ou bloqueado, nunca parcialmente.
 -- =====================================================================
 
 
@@ -66,8 +66,8 @@ SELECT id, status
 UPDATE clientes c
    SET execucoes_mes_atual =
          CASE WHEN c.periodo_referencia = periodo_atual()
-              THEN c.execucoes_mes_atual + 1
-              ELSE 1                       -- (a) virou o mês: reinicia em 1
+              THEN c.execucoes_mes_atual + :quantidade
+              ELSE :quantidade             -- (a) virou o mês: reinicia no lote
          END,
        periodo_referencia = periodo_atual()
   FROM planos p
@@ -76,7 +76,7 @@ UPDATE clientes c
    AND (CASE WHEN c.periodo_referencia = periodo_atual()
              THEN c.execucoes_mes_atual
              ELSE 0                        -- competência velha ⇒ consumo zerado
-        END) < p.limite_execucoes_mensal   -- (b) o limite, dentro do WHERE
+        END) + :quantidade <= p.limite_execucoes_mensal -- (b) lote cabe inteiro
 RETURNING c.execucoes_mes_atual AS usado,
           p.limite_execucoes_mensal AS limite;
 
@@ -94,8 +94,12 @@ RETURNING c.execucoes_mes_atual AS usado,
 --
 --  A transação faz COMMIT (a linha precisa persistir) e a API devolve 429.
 -- ---------------------------------------------------------------------
-INSERT INTO execucoes (agente_id, cliente_id, status, mensagem_erro)
-VALUES ($1, $2, 'bloqueada', 'Limite mensal do plano atingido.');
+INSERT INTO execucoes
+  (agente_id, cliente_id, status, mensagem_erro, quantidade_execucoes,
+   tokens_entrada, tokens_saida)
+VALUES
+  ($1, $2, 'bloqueada', 'Limite mensal do plano atingido.', :quantidade,
+   :tokens_entrada, :tokens_saida);
 
 
 -- ---------------------------------------------------------------------
@@ -108,16 +112,18 @@ VALUES ($1, $2, 'bloqueada', 'Limite mensal do plano atingido.');
 UPDATE agentes
    SET execucoes_mes_atual =
          CASE WHEN periodo_referencia = periodo_atual()
-              THEN execucoes_mes_atual + 1
-              ELSE 1
+              THEN execucoes_mes_atual + :quantidade
+              ELSE :quantidade
          END,
        periodo_referencia = periodo_atual(),
-       total_execucoes    = total_execucoes + 1,
+       total_execucoes    = total_execucoes + :quantidade,
        ultima_execucao_em = now()
  WHERE id = $1 AND cliente_id = $2;
 
-INSERT INTO execucoes (agente_id, cliente_id, status, duracao_ms, tokens_entrada, tokens_saida)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO execucoes
+  (agente_id, cliente_id, status, duracao_ms, tokens_entrada, tokens_saida,
+   quantidade_execucoes)
+VALUES ($1, $2, $3, $4, $5, $6, :quantidade)
 RETURNING id, criado_em;
 
 

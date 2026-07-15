@@ -4,6 +4,7 @@ import { withTransaction } from '../../db/pool';
 import { AppError } from '../../shared/AppError';
 
 export interface DadosExecucao {
+  quantidadeExecucoes: number;
   status: 'sucesso' | 'erro';
   duracaoMs?: number | undefined;
   tokensEntrada?: number | undefined;
@@ -48,8 +49,8 @@ const SQL_CONSUMIR_COTA = `
   UPDATE clientes c
      SET execucoes_mes_atual =
            CASE WHEN c.periodo_referencia = periodo_atual()
-                THEN c.execucoes_mes_atual + 1
-                ELSE 1
+                THEN c.execucoes_mes_atual + $2
+                ELSE $2
            END,
          periodo_referencia = periodo_atual()
     FROM planos p
@@ -58,7 +59,7 @@ const SQL_CONSUMIR_COTA = `
      AND (CASE WHEN c.periodo_referencia = periodo_atual()
                THEN c.execucoes_mes_atual
                ELSE 0
-          END) < p.limite_execucoes_mensal
+          END) + $2 <= p.limite_execucoes_mensal
   RETURNING c.execucoes_mes_atual AS usado, p.limite_execucoes_mensal AS limite
 `;
 
@@ -113,16 +114,17 @@ export async function registrarExecucao(
 
     // PASSO 2: consumir cota. Trava `clientes` (sempre antes de `agentes`).
     const consumo = await client.query<{ usado: number; limite: number }>(SQL_CONSUMIR_COTA, [
-      clienteId,
+      clienteId, dados.quantidadeExecucoes,
     ]);
 
     // PASSO 3a: bloqueado. Grava a tentativa recusada como auditoria e NÃO
     // incrementa contador nenhum: cota estourada não vira cobrança.
     if (consumo.rowCount === 0) {
       await client.query(
-        `INSERT INTO execucoes (agente_id, cliente_id, status, mensagem_erro)
-         VALUES ($1, $2, 'bloqueada', 'Limite mensal do plano atingido.')`,
-        [agenteId, clienteId],
+        `INSERT INTO execucoes (agente_id, cliente_id, status, mensagem_erro, quantidade_execucoes,
+                                tokens_entrada, tokens_saida)
+         VALUES ($1, $2, 'bloqueada', 'Limite mensal do plano atingido.', $3, $4, $5)`,
+        [agenteId, clienteId, dados.quantidadeExecucoes, dados.tokensEntrada ?? null, dados.tokensSaida ?? null],
       );
 
       const { usado, limite } = await consultarCota(client, clienteId);
@@ -138,20 +140,21 @@ export async function registrarExecucao(
       `UPDATE agentes
           SET execucoes_mes_atual =
                 CASE WHEN periodo_referencia = periodo_atual()
-                     THEN execucoes_mes_atual + 1
-                     ELSE 1
+                     THEN execucoes_mes_atual + $3
+                     ELSE $3
                 END,
               periodo_referencia = periodo_atual(),
-              total_execucoes    = total_execucoes + 1,
+              total_execucoes    = total_execucoes + $3,
               ultima_execucao_em = now()
         WHERE id = $1 AND cliente_id = $2`,
-      [agenteId, clienteId],
+      [agenteId, clienteId, dados.quantidadeExecucoes],
     );
 
     const { rows } = await client.query<{ id: string; status: string; criado_em: Date }>(
       `INSERT INTO execucoes
-         (agente_id, cliente_id, status, duracao_ms, tokens_entrada, tokens_saida, mensagem_erro)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (agente_id, cliente_id, status, duracao_ms, tokens_entrada, tokens_saida, mensagem_erro,
+          quantidade_execucoes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, status, criado_em`,
       [
         agenteId,
@@ -161,6 +164,7 @@ export async function registrarExecucao(
         dados.tokensEntrada ?? null,
         dados.tokensSaida ?? null,
         dados.mensagemErro ?? null,
+        dados.quantidadeExecucoes,
       ],
     );
 

@@ -15,12 +15,12 @@ export async function limparBanco(): Promise<void> {
   await pool.query('TRUNCATE execucoes, agentes, clientes, planos RESTART IDENTITY CASCADE');
 }
 
-export async function criarConta(sufixo = 'principal', limite = 100): Promise<ContaTeste> {
+export async function criarConta(sufixo = 'principal', limite = 100, limiteAgentes = 10): Promise<ContaTeste> {
   const senha = 'senha-segura';
   const hash = await bcrypt.hash(senha, 4);
   const plano = await pool.query<{ id: string }>(
-    `INSERT INTO planos (nome, limite_execucoes_mensal) VALUES ($1, $2) RETURNING id`,
-    [`Plano ${sufixo}`, limite],
+    `INSERT INTO planos (nome, limite_execucoes_mensal, limite_agentes) VALUES ($1, $2, $3) RETURNING id`,
+    [`Plano ${sufixo}`, limite, limiteAgentes],
   );
   const email = `${sufixo}@rotik.test`;
   const cliente = await pool.query<{ id: string }>(

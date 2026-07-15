@@ -28,6 +28,7 @@ Table planos {
   id uuid [pk, default: `gen_random_uuid()`]
   nome text [not null, note: 'UNIQUE sobre lower(nome). Starter, Growth, Scale']
   limite_execucoes_mensal integer [not null, note: 'CHECK > 0. A cota do pool.']
+  limite_agentes integer [not null, default: 10, note: 'Growth = 5; Pro = 10.']
   ativo boolean [not null, default: true]
   criado_em timestamptz [not null, default: `now()`]
   atualizado_em timestamptz [not null, default: `now()`]
@@ -117,6 +118,7 @@ Table execucoes {
   duracao_ms integer
   tokens_entrada integer
   tokens_saida integer
+  quantidade_execucoes integer [not null, default: 1, note: 'CHECK 1..1000; tamanho do lote solicitado.']
   mensagem_erro text
   criado_em timestamptz [not null, default: `now()`, note: 'Chave de paginação keyset']
 

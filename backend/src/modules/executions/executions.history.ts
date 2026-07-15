@@ -8,6 +8,7 @@ export interface ItemHistorico {
   duracaoMs: number | null;
   tokensEntrada: number | null;
   tokensSaida: number | null;
+  quantidadeExecucoes: number;
   mensagemErro: string | null;
   criadoEm: Date;
 }
@@ -88,10 +89,11 @@ export async function listarHistorico(
     duracao_ms: number | null;
     tokens_entrada: number | null;
     tokens_saida: number | null;
+    quantidade_execucoes: number;
     mensagem_erro: string | null;
     criado_em: Date;
   }>(
-    `SELECT id, status, duracao_ms, tokens_entrada, tokens_saida, mensagem_erro, criado_em
+    `SELECT id, status, duracao_ms, tokens_entrada, tokens_saida, quantidade_execucoes, mensagem_erro, criado_em
        FROM execucoes
       WHERE agente_id = $1
         AND cliente_id = $2
@@ -110,6 +112,7 @@ export async function listarHistorico(
     duracaoMs: l.duracao_ms,
     tokensEntrada: l.tokens_entrada,
     tokensSaida: l.tokens_saida,
+    quantidadeExecucoes: l.quantidade_execucoes,
     mensagemErro: l.mensagem_erro,
     criadoEm: l.criado_em,
   }));

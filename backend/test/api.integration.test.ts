@@ -224,6 +224,49 @@ describe('API HTTP', () => {
     expect(estado.rows[0]).toEqual({ consumo: 100, executadas: '100', bloqueadas: '12' });
   }, 30_000);
 
+  it('consome lotes atomicamente e registra o lote bloqueado sem ultrapassar a cota', async () => {
+    const conta = await criarConta('lotes', 100);
+    const respostas = await Promise.all(Array.from({ length: 12 }, () => request(app)
+      .post(`/agents/${conta.agenteId}/executions`).set(autorizar(conta.token))
+      .send({ quantidadeExecucoes: 10, tokensEntrada: 120, tokensSaida: 30 })));
+    expect(respostas.filter((r) => r.status === 201)).toHaveLength(10);
+    expect(respostas.filter((r) => r.status === 429)).toHaveLength(2);
+    const estado = await pool.query(
+      `SELECT c.execucoes_mes_atual, a.total_execucoes,
+              count(*) FILTER (WHERE e.status = 'bloqueada') AS bloqueios,
+              max(e.quantidade_execucoes) AS maior_lote
+         FROM clientes c JOIN agentes a ON a.cliente_id = c.id
+         JOIN execucoes e ON e.agente_id = a.id WHERE c.id = $1
+        GROUP BY c.execucoes_mes_atual, a.total_execucoes`, [conta.clienteId]);
+    expect(estado.rows[0]).toMatchObject({ execucoes_mes_atual: 100,
+      total_execucoes: '100', bloqueios: '2', maior_lote: 10 });
+  }, 30_000);
+
+  it('impõe o limite de agentes do plano mesmo sob criações concorrentes', async () => {
+    const conta = await criarConta('agentes-limite', 100, 5);
+    const respostas = await Promise.all(Array.from({ length: 8 }, (_, i) => request(app)
+      .post('/agents').set(autorizar(conta.token)).send({ nome: `Novo ${i}` })));
+    expect(respostas.filter((r) => r.status === 201)).toHaveLength(4);
+    expect(respostas.filter((r) => r.status === 409)).toHaveLength(4);
+    expect(respostas.find((r) => r.status === 409)!.body.erro).toMatchObject({
+      codigo: 'LIMITE_AGENTES_ATINGIDO', detalhes: { usado: 5, limite: 5 },
+    });
+    const lista = await request(app).get('/agents').set(autorizar(conta.token));
+    expect(lista.body.data).toHaveLength(5);
+    expect(lista.body.data[0]).toMatchObject({
+      plano: { limiteAgentes: 5 }, agentes: { usado: 5, limite: 5, restante: 0 },
+    });
+  });
+
+  it('informa plano e vagas mesmo quando a conta ainda nÃ£o possui agentes', async () => {
+    const conta = await criarConta('vazia', 100, 5);
+    await pool.query('DELETE FROM agentes WHERE cliente_id = $1', [conta.clienteId]);
+    const resposta = await request(app).get('/agents').set(autorizar(conta.token));
+    expect(resposta.body).toMatchObject({ data: [], meta: {
+      plano: { limiteAgentes: 5 }, agentes: { usado: 0, limite: 5, restante: 5 },
+    } });
+  });
+
   it('pagina o histórico por cursor sem repetir linhas e valida posse/cursor', async () => {
     const conta = await criarConta('historico', 10);
     const outro = await criarConta('outro');

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { autenticar, obterClienteId } from '../../middlewares/auth';
 import { validate } from '../../middlewares/validate';
 import { asyncHandler } from '../../shared/asyncHandler';
-import { criarAgente, listarAgentesComConsumo } from './agents.repository';
+import { consultarLimitesAgentes, criarAgente, listarAgentesComConsumo } from './agents.repository';
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -48,7 +48,10 @@ agentsRouter.post(
 agentsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const agentes = await listarAgentesComConsumo(obterClienteId(req));
-    res.json({ data: agentes });
+    const clienteId = obterClienteId(req);
+    const [agentes, meta] = await Promise.all([
+      listarAgentesComConsumo(clienteId), consultarLimitesAgentes(clienteId),
+    ]);
+    res.json({ data: agentes, meta });
   }),
 );

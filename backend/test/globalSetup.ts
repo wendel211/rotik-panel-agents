@@ -31,10 +31,12 @@ export default async function globalSetup(): Promise<void> {
   }
 
   const schema = await readFile(resolve(import.meta.dirname, '../../db/init/01_schema.sql'), 'utf8');
+  const usageLimits = await readFile(resolve(import.meta.dirname, '../../db/init/03_usage_limits.sql'), 'utf8');
   const testClient = new Client({ connectionString: testDatabaseUrl });
   await testClient.connect();
   try {
     await testClient.query(schema);
+    await testClient.query(usageLimits);
   } finally {
     await testClient.end();
   }
