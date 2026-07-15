@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* Marca. Extraída do site e do produto da Rotik. */
   --color-brand-950: #06102b;
   --color-brand-900: #101b3d;
   --color-brand-700: #295dff;
@@ -8,12 +9,31 @@
   --color-brand-300: #87c8ff;
   --color-brand-100: #d6ebff;
   --color-brand-50: #e9f0ff;
+
+  /* Superfícies claras. Usadas só no login, que é a porta de entrada. */
   --color-canvas: #f3f6fc;
   --color-surface: #fffffd;
   --color-ink: #0c0f1e;
   --color-muted: #647291;
   --color-subtle: #647291;
   --color-line: #e2e8f5;
+
+  /* Superfícies escuras do painel.
+     O produto da Rotik é escuro, e o painel operacional é uma tela de vigília:
+     o CS deixa aberta o dia inteiro. Fundo escuro reduz fadiga e deixa a cor
+     semântica (vermelho de bloqueio, âmbar de alerta) saltar de verdade. */
+  --color-shell: #080e1c;
+  --color-rail: #0b1322;
+  --color-panel: #101a2e;
+  --color-panel-2: #16223a;
+  --color-hairline: #1e2b45;
+  --color-hi: #eaf0fb;
+  --color-lo: #8b9ac0;
+
+  /* Semânticas. Nunca decorativas: cada uma significa um estado do negócio. */
+  --color-ok: #10b981;
+  --color-warn: #f59e0b;
+  --color-danger: #f43f5e;
 }
 
 :root {
@@ -25,6 +45,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --shadow-panel: 0 1px 2px rgba(6, 16, 43, 0.04), 0 18px 45px rgba(6, 16, 43, 0.06);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -34,7 +55,6 @@
 html {
   min-width: 320px;
   background: #f3f6fc;
-  scroll-behavior: smooth;
 }
 
 body {
@@ -59,17 +79,19 @@ textarea {
 }
 
 :focus-visible {
-  outline: 3px solid #295dff;
-  outline-offset: 3px;
+  outline: 2px solid #3285ff;
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 @layer components {
+  /* ---------- Controles (login, claro) ---------- */
   .control-field {
     @apply w-full rounded-xl border border-line bg-surface text-ink shadow-sm transition duration-200 placeholder:text-subtle hover:border-subtle focus:border-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-700/10;
   }
 
   .button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white shadow-[0_12px_24px_-14px_rgba(41,93,255,.9)] transition duration-200 hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-55;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white shadow-[0_12px_24px_-14px_rgba(41,93,255,.9)] transition duration-200 hover:bg-brand-600 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-55;
   }
 
   .button-secondary {
@@ -79,8 +101,94 @@ textarea {
   .icon-button {
     @apply grid place-items-center rounded-xl text-subtle transition duration-200 hover:bg-brand-50 hover:text-brand-950;
   }
+
+  /* ---------- Superfícies do painel (escuro) ---------- */
+
+  /* O card do painel. O brilho no topo (inset branco a 4%) simula luz vindo de
+     cima e é o que separa o card do fundo sem precisar de borda grossa. */
+  .panel {
+    @apply rounded-2xl border border-hairline bg-panel;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 12px 32px -18px rgba(0, 0, 0, 0.7);
+  }
+
+  .panel-tile {
+    @apply rounded-xl border border-hairline/70 bg-panel-2;
+  }
+
+  /* Pill do topo. Discreto por padrão, ganha contorno de marca no hover. */
+  .pill {
+    @apply inline-flex h-9 items-center gap-2 rounded-full border border-hairline bg-panel px-3.5 text-xs font-medium text-lo transition duration-200 hover:border-brand-700/60 hover:text-hi;
+  }
+
+  .rail-item {
+    @apply relative grid size-11 place-items-center rounded-xl text-lo transition-colors duration-200 hover:bg-white/5 hover:text-hi;
+  }
+
+  .btn-dark {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hairline bg-panel-2 px-3.5 text-sm font-medium text-hi transition duration-200 hover:border-brand-700/60 hover:bg-brand-700/10 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .field-dark {
+    @apply w-full rounded-xl border border-hairline bg-shell/60 text-hi transition duration-200 placeholder:text-lo/60 hover:border-lo/40 focus:border-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-700/15;
+  }
 }
 
+@layer utilities {
+  /* Preenchimento da barra de cota. Animar `transform` e não `width` mantém a
+     transição no compositor: `width` força layout a cada frame. */
+  .bar-fill {
+    transform-origin: left center;
+    transition: transform 900ms var(--ease-out-expo);
+  }
+
+  /* Varredura sobre a barra, só quando a conta está em risco. Puxa o olho do CS
+     para a única linha que exige ação.
+
+     Finita de propósito (3 repetições, não `infinite`). Este painel é uma tela
+     de vigília: fica aberta o dia inteiro. Animação infinita manteria o
+     compositor acordado para sempre, queimando GPU e bateria por nada, e depois
+     dos primeiros segundos ela já não chama atenção, só vira ruído. Ela existe
+     para ser notada na chegada, e some. O estado continua legível pela cor e
+     pelo texto do selo, que é o que carrega a informação. */
+  @keyframes bar-sheen {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(320%); }
+  }
+
+  .animate-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+    animation: bar-sheen 2.6s var(--ease-out-expo) 3;
+    animation-fill-mode: forwards;
+  }
+
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
+    70% { box-shadow: 0 0 0 7px rgba(244, 63, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+  }
+
+  .animate-pulse-ring {
+    animation: pulse-ring 2s ease-out 4;
+  }
+
+  /* Malha de fundo. Dá textura ao vazio sem competir com o conteúdo. */
+  .shell-grid {
+    background-image:
+      radial-gradient(1200px 520px at 78% -8%, rgba(41, 93, 255, 0.14), transparent 60%),
+      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    background-size: 100% 100%, 44px 44px, 44px 44px;
+  }
+}
+
+/* Respeita quem pediu menos movimento. Toda animação acima é enfeite ou reforço,
+   nenhuma carrega informação sozinha, então desligar não perde conteúdo. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
