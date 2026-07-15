@@ -30,10 +30,56 @@
   --color-hi: #eaf0fb;
   --color-lo: #8b9ac0;
 
+  /* Azul de destaque DO PAINEL, separado de brand-300 de propósito.
+     O painel esquerdo do login é sempre escuro e usa brand-300; sobrescrever
+     aquele token no tema claro apagaria o texto do login. Este flipa, aquele não. */
+  --color-accent: #87c8ff;
+
   /* Semânticas. Nunca decorativas: cada uma significa um estado do negócio. */
   --color-ok: #10b981;
   --color-warn: #f59e0b;
   --color-danger: #f43f5e;
+}
+
+/* ---------------------------------------------------------------------------
+   Tema claro.
+   O escuro é o padrão (vive no @theme acima), e o claro é um override por
+   atributo. Isso importa: sem `data-theme`, a página já nasce escura, então
+   não existe flash de tema errado no primeiro paint.
+
+   O Tailwind v4 compila `bg-panel` para `background-color: var(--color-panel)`,
+   então redefinir a variável aqui vira o painel inteiro sem tocar em um único
+   componente. Nenhum `dark:` espalhado pelo JSX.
+   --------------------------------------------------------------------------- */
+:root[data-theme='light'] {
+  --color-shell: #f2f5fb;
+  --color-rail: #ffffff;
+  --color-panel: #ffffff;
+  --color-panel-2: #f6f9ff;
+  --color-hairline: #e3e9f5;
+  --color-hi: #0c0f1e;
+  --color-lo: #5b6a8b;
+
+  --color-accent: #295dff;
+
+  /* As semânticas escurecem no claro por CONTRASTE, não por gosto: #10b981 e
+     #f59e0b sobre branco ficam em torno de 2:1, longe do mínimo de 4.5:1 do
+     WCAG AA para texto. Os tons 700 passam. */
+  --color-ok: #047857;
+  --color-warn: #b45309;
+  --color-danger: #be123c;
+
+  --panel-glow: none;
+  --panel-shadow: 0 1px 2px rgba(6, 16, 43, 0.05), 0 14px 34px -22px rgba(6, 16, 43, 0.22);
+  --grid-line: rgba(6, 16, 43, 0.028);
+  --grid-glow: rgba(41, 93, 255, 0.07);
+  --sheen: rgba(255, 255, 255, 0.6);
+}
+
+/* O fundo do documento acompanha o tema, senão a área fora do app (overscroll,
+   barra de rolagem) continuaria escura no tema claro. */
+:root[data-theme='light'] body {
+  background: #f2f5fb;
 }
 
 :root {
@@ -46,6 +92,15 @@
   -moz-osx-font-smoothing: grayscale;
   --shadow-panel: 0 1px 2px rgba(6, 16, 43, 0.04), 0 18px 45px rgba(6, 16, 43, 0.06);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Efeitos que dependem da luz do tema. Não são cores de utilitário, então
+     vivem aqui e não no @theme. O brilho superior simula luz vindo de cima:
+     no claro ele não faz sentido e some, dando lugar a uma sombra real. */
+  --panel-glow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --panel-shadow: 0 12px 32px -18px rgba(0, 0, 0, 0.7);
+  --grid-line: rgba(255, 255, 255, 0.022);
+  --grid-glow: rgba(41, 93, 255, 0.14);
+  --sheen: rgba(255, 255, 255, 0.28);
 }
 
 * {
@@ -102,36 +157,78 @@ textarea {
     @apply grid place-items-center rounded-xl text-subtle transition duration-200 hover:bg-brand-50 hover:text-brand-950;
   }
 
-  /* ---------- Superfícies do painel (escuro) ---------- */
+  /* ---------- Superfícies do painel ----------
 
-  /* O card do painel. O brilho no topo (inset branco a 4%) simula luz vindo de
-     cima e é o que separa o card do fundo sem precisar de borda grossa. */
+     ATENÇÃO: as cores que dependem do tema são escritas com `var()` explícito,
+     e NÃO com `@apply bg-panel-2`.
+
+     Motivo: o `@apply` de um utilitário de cor dentro de @layer resolve o token
+     para o valor literal em tempo de build. O CSS gerado vira
+     `background-color: #16223a` em vez de `background-color: var(--color-panel-2)`,
+     e aí o override de `:root[data-theme="light"]` não tem o que sobrescrever:
+     a indireção que o tema inteiro depende já foi perdida.
+
+     Isso quebrou de forma silenciosa e assimétrica (uns componentes viravam,
+     outros não), que é o pior tipo de bug de tema. `@apply` segue valendo para
+     layout e para o que não muda com o tema. */
+
   .panel {
-    @apply rounded-2xl border border-hairline bg-panel;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.04),
-      0 12px 32px -18px rgba(0, 0, 0, 0.7);
+    @apply rounded-2xl border;
+    border-color: var(--color-hairline);
+    background-color: var(--color-panel);
+    box-shadow: var(--panel-glow), var(--panel-shadow);
   }
 
   .panel-tile {
-    @apply rounded-xl border border-hairline/70 bg-panel-2;
+    @apply rounded-xl border;
+    border-color: color-mix(in oklab, var(--color-hairline) 70%, transparent);
+    background-color: var(--color-panel-2);
   }
 
   /* Pill do topo. Discreto por padrão, ganha contorno de marca no hover. */
   .pill {
-    @apply inline-flex h-9 items-center gap-2 rounded-full border border-hairline bg-panel px-3.5 text-xs font-medium text-lo transition duration-200 hover:border-brand-700/60 hover:text-hi;
+    @apply inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-medium transition duration-200;
+    border-color: var(--color-hairline);
+    background-color: var(--color-panel);
+    color: var(--color-lo);
+  }
+
+  .pill:hover {
+    border-color: color-mix(in oklab, var(--color-brand-700) 60%, transparent);
+    color: var(--color-hi);
   }
 
   .rail-item {
-    @apply relative grid size-11 place-items-center rounded-xl text-lo transition-colors duration-200 hover:bg-white/5 hover:text-hi;
+    @apply relative grid size-11 place-items-center rounded-xl transition-colors duration-200;
+    color: var(--color-lo);
+  }
+
+  .rail-item:hover {
+    background-color: color-mix(in oklab, var(--color-hi) 5%, transparent);
+    color: var(--color-hi);
   }
 
   .btn-dark {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-hairline bg-panel-2 px-3.5 text-sm font-medium text-hi transition duration-200 hover:border-brand-700/60 hover:bg-brand-700/10 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border px-3.5 text-sm font-medium transition duration-200 disabled:cursor-not-allowed disabled:opacity-45;
+    border-color: var(--color-hairline);
+    background-color: var(--color-panel-2);
+    color: var(--color-hi);
+  }
+
+  .btn-dark:hover:not(:disabled) {
+    border-color: color-mix(in oklab, var(--color-brand-700) 60%, transparent);
+    background-color: color-mix(in oklab, var(--color-brand-700) 10%, transparent);
   }
 
   .field-dark {
-    @apply w-full rounded-xl border border-hairline bg-shell/60 text-hi transition duration-200 placeholder:text-lo/60 hover:border-lo/40 focus:border-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-700/15;
+    @apply w-full rounded-xl border transition duration-200 focus:border-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-700/15;
+    border-color: var(--color-hairline);
+    background-color: color-mix(in oklab, var(--color-shell) 60%, transparent);
+    color: var(--color-hi);
+  }
+
+  .field-dark::placeholder {
+    color: color-mix(in oklab, var(--color-lo) 60%, transparent);
   }
 }
 
@@ -162,7 +259,7 @@ textarea {
     position: absolute;
     inset: 0;
     width: 30%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+    background: linear-gradient(90deg, transparent, var(--sheen), transparent);
     animation: bar-sheen 2.6s var(--ease-out-expo) 3;
     animation-fill-mode: forwards;
   }
@@ -180,9 +277,9 @@ textarea {
   /* Malha de fundo. Dá textura ao vazio sem competir com o conteúdo. */
   .shell-grid {
     background-image:
-      radial-gradient(1200px 520px at 78% -8%, rgba(41, 93, 255, 0.14), transparent 60%),
-      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+      radial-gradient(1200px 520px at 78% -8%, var(--grid-glow), transparent 60%),
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 100% 100%, 44px 44px, 44px 44px;
   }
 }

@@ -1,8 +1,9 @@
-import { motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Activity, BookOpen, LayoutGrid, LogOut, Settings } from 'lucide-react'
+import { Activity, BookOpen, LayoutGrid, LogOut, Moon, Settings, Sun } from 'lucide-react'
 
 import { obterIniciais } from '../lib/format'
+import { useTema } from '../lib/theme'
 
 interface AppShellProps {
   titulo: string
@@ -45,13 +46,62 @@ export function AppShell({ titulo, cliente, acoes, aoSair, children }: AppShellP
             >
               {titulo}
             </motion.h1>
-            <div className="flex shrink-0 items-center gap-2">{acoes}</div>
+            <div className="flex shrink-0 items-center gap-2">
+              <BotaoTema />
+              {acoes}
+            </div>
           </div>
         </header>
 
         <main className="shell-grid flex-1 px-5 py-7 sm:px-8">{children}</main>
       </div>
     </div>
+  )
+}
+
+/**
+ * Alterna entre o painel escuro (padrão) e o claro.
+ *
+ * `aria-pressed` em vez de só `aria-label`: o botão é um toggle com estado, e
+ * o leitor de tela precisa anunciar se o modo claro está ligado ou desligado,
+ * não apenas que existe um botão ali.
+ *
+ * A troca é instantânea porque acontece toda em variáveis CSS. Não há refetch,
+ * remount nem flash: o navegador só recalcula as cores.
+ */
+function BotaoTema() {
+  const { tema, alternar } = useTema()
+  const reduzirMovimento = useReducedMotion()
+  const claro = tema === 'claro'
+
+  return (
+    <button
+      type="button"
+      onClick={alternar}
+      className="pill relative overflow-hidden"
+      aria-pressed={claro}
+      title={claro ? 'Voltar ao tema escuro' : 'Usar tema claro'}
+    >
+      {/* Caixa de altura fixa: os dois ícones ocupam o mesmo espaço enquanto um
+          sai e o outro entra, senão o botão saltaria de tamanho na troca. */}
+      <span className="relative grid size-4 place-items-center" aria-hidden="true">
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span
+            key={tema}
+            className="absolute inset-0 grid place-items-center"
+            initial={reduzirMovimento ? false : { opacity: 0, rotate: -90, scale: 0.5 }}
+            animate={{ opacity: 1, rotate: 0, scale: 1 }}
+            exit={reduzirMovimento ? { opacity: 0 } : { opacity: 0, rotate: 90, scale: 0.5 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {claro ? <Moon className="size-4" /> : <Sun className="size-4" />}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+
+      <span className="hidden sm:inline">{claro ? 'Escuro' : 'Claro'}</span>
+      <span className="sr-only">Tema claro {claro ? 'ativado' : 'desativado'}</span>
+    </button>
   )
 }
 
@@ -111,7 +161,7 @@ function RailLink({ icone, rotulo, ativo = false }: { icone: ReactNode; rotulo: 
   }
 
   return (
-    <a href="#conteudo" className="rail-item bg-brand-700/15 text-brand-300" aria-current="page" title={rotulo}>
+    <a href="#conteudo" className="rail-item bg-brand-700/15 text-accent" aria-current="page" title={rotulo}>
       {/* Indicador de página ativa: barra na borda do rail, como no produto. */}
       <span className="absolute left-0 h-6 w-0.5 rounded-r-full bg-brand-600" aria-hidden="true" />
       {icone}
@@ -157,7 +207,7 @@ function MenuConta({ cliente, aoSair }: { cliente: { nome: string; email: string
         onClick={() => setAberto((valor) => !valor)}
         aria-expanded={aberto}
         aria-haspopup="menu"
-        className="grid size-10 place-items-center rounded-xl bg-panel-2 text-xs font-bold text-brand-300 ring-1 ring-hairline
+        className="grid size-10 place-items-center rounded-xl bg-panel-2 text-xs font-bold text-accent ring-1 ring-hairline
                    transition duration-200 hover:ring-brand-700/60"
       >
         {obterIniciais(cliente.nome)}

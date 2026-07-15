@@ -9,6 +9,24 @@
       content="Painel de monitoramento de consumo dos agentes de IA da Rotik."
     />
     <title>Rotik | Painel de agentes</title>
+    <script>
+      // Aplica o tema salvo ANTES do primeiro paint.
+      //
+      // Precisa ser inline e síncrono no <head>: se ficasse no React, o
+      // navegador pintaria o tema padrão (escuro) por um frame antes da
+      // hidratação e quem escolheu o claro veria um flash preto a cada reload.
+      // É o único caso deste projeto em que script bloqueante se justifica,
+      // porque ele custa menos que o flash que evita.
+      //
+      // Sem atributo = escuro, que é o padrão do CSS. Só o claro escreve.
+      try {
+        if (localStorage.getItem('rotik:tema') === 'claro') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {
+        // Storage bloqueado: segue no escuro, que é o padrão.
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

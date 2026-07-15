@@ -47,7 +47,7 @@ export function AgentList({
 function EstadoVazio({ aoNovoAgente }: { aoNovoAgente: () => void }) {
   return (
     <div className="flex flex-col items-center rounded-xl border border-dashed border-hairline bg-shell/40 px-6 py-12 text-center">
-      <span className="grid size-12 place-items-center rounded-2xl bg-brand-700/10 text-brand-300" aria-hidden="true">
+      <span className="grid size-12 place-items-center rounded-2xl bg-brand-700/10 text-accent" aria-hidden="true">
         <Bot className="size-6" />
       </span>
       <h3 className="mt-4 text-sm font-semibold text-hi">Nenhum agente cadastrado</h3>

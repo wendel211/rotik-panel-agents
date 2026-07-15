@@ -27,7 +27,7 @@ export function MetricTiles({ ativos, pausados, bloqueados, execucoesMes }: Metr
           rotulo="Ativos"
           valor={ativos}
           icone={<CircleCheck className="size-4" />}
-          corChip="bg-brand-700/15 text-brand-300"
+          corChip="bg-brand-700/15 text-accent"
           indice={0}
         />
         <Tile
