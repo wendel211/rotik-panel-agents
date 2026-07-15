@@ -36,17 +36,18 @@ function obterMotivo(agente: Agente): MotivoBloqueio {
  * demais para ser lida na periferia. A borda completa envolve a linha, então o
  * estado é percebido antes mesmo de ler o texto.
  *
- * O fundo recebe um véu da mesma cor. Sem ele, a borda flutuaria sobre um card
- * neutro e leria como contorno decorativo em vez de estado da linha.
+ * O fundo permanece neutro. Colorir a linha inteira fazia o estado competir
+ * com nome, consumo e ações no tema claro. A cor fica na borda, no monograma e
+ * no selo, três sinais suficientes sem transformar o card em uma mancha.
  *
  * Isso NÃO substitui o selo: cor sozinha não pode carregar significado
  * (WCAG 1.4.1). A borda é reforço redundante para leitura rápida.
  */
 const ESTILO_POR_MOTIVO = {
-  cota: { borda: 'border-danger/60 bg-danger/[0.06]', mono: 'bg-danger/15 text-danger', selo: 'bg-danger/15 text-danger' },
-  pausado: { borda: 'border-warn/60 bg-warn/[0.06]', mono: 'bg-warn/15 text-warn', selo: 'bg-warn/15 text-warn' },
-  arquivado: { borda: 'border-warn/60 bg-warn/[0.06]', mono: 'bg-warn/15 text-warn', selo: 'bg-warn/15 text-warn' },
-  ativo: { borda: 'border-ok/50 bg-ok/[0.04]', mono: 'bg-accent/15 text-accent', selo: 'bg-ok/15 text-ok' },
+  cota: { borda: 'border-danger-border', mono: 'bg-danger-soft text-danger', selo: 'bg-danger-soft text-danger' },
+  pausado: { borda: 'border-warn-border', mono: 'bg-warn-soft text-warn', selo: 'bg-warn-soft text-warn' },
+  arquivado: { borda: 'border-warn-border', mono: 'bg-warn-soft text-warn', selo: 'bg-warn-soft text-warn' },
+  ativo: { borda: 'border-ok-border', mono: 'bg-ok-soft text-ok', selo: 'bg-ok-soft text-ok' },
 } as const
 
 function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimular }: AgentRowProps) {
@@ -159,7 +160,7 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
 function Selo({ motivo }: { motivo: MotivoBloqueio }) {
   if (motivo === 'cota') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-danger/15 px-2 py-0.5 text-[0.68rem] font-semibold text-danger">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-danger-soft px-2 py-0.5 text-[0.68rem] font-semibold text-danger">
         <span className="size-1.5 rounded-full bg-danger animate-pulse-ring" aria-hidden="true" />
         Bloqueado por cota
       </span>
@@ -168,7 +169,7 @@ function Selo({ motivo }: { motivo: MotivoBloqueio }) {
 
   if (motivo) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-warn/15 px-2 py-0.5 text-[0.68rem] font-semibold capitalize text-warn">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-soft px-2 py-0.5 text-[0.68rem] font-semibold capitalize text-warn">
         <span className="size-1.5 rounded-full bg-warn" aria-hidden="true" />
         {motivo}
       </span>
@@ -176,7 +177,7 @@ function Selo({ motivo }: { motivo: MotivoBloqueio }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/15 px-2 py-0.5 text-[0.68rem] font-medium text-ok">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-soft px-2 py-0.5 text-[0.68rem] font-medium text-ok">
       <span className="size-1.5 rounded-full bg-ok" aria-hidden="true" />
       Ativo
     </span>

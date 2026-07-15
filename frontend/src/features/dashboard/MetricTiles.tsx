@@ -84,7 +84,7 @@ function Tile({ rotulo, valor, proporcao, cor, corTexto, destacar = false, indic
 
   return (
     <motion.div
-      className={`panel-tile p-3.5 ${destacar ? 'border-danger/40' : ''}`}
+      className={`panel-tile p-3.5 ${destacar ? 'border-danger-border' : ''}`}
       initial={reduzirMovimento ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       // Entrada escalonada: o olho lê da esquerda para a direita em vez de

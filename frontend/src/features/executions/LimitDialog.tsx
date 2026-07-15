@@ -35,11 +35,11 @@ export function LimitDialog({ detalhes, aoFechar }: LimitDialogProps) {
 
         {detalhes && (
           <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-red-200 ring-1 ring-danger/30">
-            <div className="bg-danger/10 px-4 py-4">
+            <div className="bg-danger-soft px-4 py-4">
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-danger">Consumo</p>
               <p className="mt-1 text-xl font-semibold text-danger">{formatarNumero(detalhes.usado)} de {formatarNumero(detalhes.limite)}</p>
             </div>
-            <div className="bg-danger/10 px-4 py-4">
+            <div className="bg-danger-soft px-4 py-4">
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-danger">Liberação prevista</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-danger">{dataLiberacao}</p>
             </div>
