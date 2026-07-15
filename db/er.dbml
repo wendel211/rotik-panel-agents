@@ -83,7 +83,7 @@ Table agentes {
   execucoes_mes_atual integer [not null, default: 0, note: '>>> CONSOLIDADO: ATRIBUIÇÃO (qual agente queima a cota)']
   periodo_referencia date [not null, default: `periodo_atual()`]
 
-  total_execucoes bigint [not null, default: 0, note: '>>> CONSOLIDADO: vitalício. Evita COUNT(*) no totalItems da paginação']
+  total_execucoes bigint [not null, default: 0, note: '>>> CONSOLIDADO: vitalício. Só execuções que rodaram (sucesso/erro)']
   ultima_execucao_em timestamptz
 
   criado_em timestamptz [not null, default: `now()`]

@@ -29,8 +29,8 @@ por isso que o histórico de commits é granular.
 |---|---|---|
 | **0** | **Discovery** | ✅ |
 | **1** | **Modelagem de dados** | ✅ |
-| 2 | Backend REST API | ⏳ Próxima |
-| 3 | Frontend (SPA) | ⏳ |
+| **2** | **Backend REST API** | ✅ |
+| 3 | Frontend (SPA) | ⏳ Próxima |
 | 4 | Integração | ⏳ |
 | 5 | Qualidade, testes e debug | ⏳ |
 | 6 | DevOps (CI, deploy, env) | ⏳ |
@@ -51,6 +51,10 @@ no formato `<tipo>(<escopo>): <descrição no imperativo>`.
   - [Decisões de modelagem](#decisões-de-modelagem)
   - [Uso mensal sem COUNT(\*)](#uso-mensal-sem-count)
   - [Verificação empírica](#verificação-empírica)
+- [Etapa 2: Backend REST API](#etapa-2-backend-rest-api)
+  - [Endpoints](#endpoints)
+  - [Decisões de arquitetura](#decisões-de-arquitetura)
+  - [Rodando localmente](#rodando-localmente)
 
 ---
 
@@ -582,3 +586,116 @@ Também verificado no mesmo ambiente:
 
 > Os testes automatizados da Etapa 5 formalizam esses cenários, inclusive o de concorrência, para que a
 > regra não regrida em silêncio.
+
+---
+
+# Etapa 2: Backend REST API
+
+Express 4 + TypeScript estrito + Zod, com `pg` puro. Código em [`backend/`](backend/).
+
+## Endpoints
+
+| Método | Rota | O que faz |
+|---|---|---|
+| `GET` | `/health` | Checa processo **e** banco. Uma API que não alcança o Postgres responde 503. |
+| `POST` | `/auth/login` | E-mail e senha, devolve JWT. Auth simplificada, que o desafio permite. |
+| `POST` | `/agents` | Cadastra agente no tenant do token. |
+| `GET` | `/agents` | Lista agentes com consumo, limite, percentual e flag de bloqueio. |
+| `POST` | `/agents/:id/executions` | **A regra central.** Consome cota atomicamente ou bloqueia com 429. |
+| `GET` | `/agents/:id/executions` | Histórico paginado por keyset. |
+
+Envelope de erro único em toda a API. O frontend ramifica por `codigo`, que é estável, e nunca pela
+mensagem, que é texto humano e vai mudar:
+
+```json
+{ "erro": { "codigo": "LIMITE_PLANO_ATINGIDO", "mensagem": "...", "detalhes": { } } }
+```
+
+## Decisões de arquitetura
+
+### `pg` puro, sem ORM
+
+A regra central é um `UPDATE` condicional escrito à mão. Qualquer ORM obrigaria a cair em raw query
+justamente nela, ou seja, pagaríamos o peso da dependência e ainda escreveríamos o SQL na mão no
+único ponto que importa. Pior: esconderia atrás de abstração exatamente o que está sendo avaliado.
+Ficou `pg` com uma camada fina de repositório.
+
+### 429, e não 402 ou 403, no bloqueio
+
+O desafio pede "o status adequado", e isso é julgamento. Cota mensal é conceitualmente um rate limit
+(N chamadas por janela), e `429` é o que clientes HTTP e SDKs já sabem tratar, inclusive respeitando
+`Retry-After`. Mando o `Retry-After` apontando para o início da próxima competência, que é quando a
+cota realmente volta, então é informação verdadeira e acionável.
+
+`402 Payment Required` seria defensável, já que é literalmente "faça upgrade", mas é raro o suficiente
+para que a maioria dos consumidores não trate. Escolhi interoperabilidade em vez de pureza semântica.
+
+### A transação commita mesmo quando bloqueia
+
+Esse é o detalhe mais frágil do desenho e o mais fácil de errar. O `withTransaction` faz `ROLLBACK` em
+qualquer exceção. Se o repositório lançasse o 429 de dentro da transação, a linha
+`status='bloqueada'` seria revertida junto, e perderíamos exatamente o "pelo menos a gente precisa
+saber que isso aconteceu" do briefing.
+
+Por isso o repositório devolve uma união discriminada em vez de lançar, a transação commita nos dois
+caminhos, e quem converte o bloqueio em 429 é a rota, depois do commit.
+
+### 404, e não 403, para recurso de outro tenant
+
+Um `403` confirmaria que o id existe. Isso já é vazamento de informação entre clientes: dá para
+enumerar agentes da concorrência pela diferença entre 403 e 404. O agente de outro cliente
+simplesmente não existe para você.
+
+### Paginação keyset, e não OFFSET
+
+`OFFSET 10000` obriga o Postgres a varrer e descartar 10 mil linhas antes de devolver a página, então
+a página 500 custa 500 vezes a página 1. O keyset usa o índice
+`execucoes (agente_id, criado_em DESC, id DESC)` para posicionar direto no corte, com custo igual em
+qualquer profundidade.
+
+A comparação é em tupla, `(criado_em, id) < (cursor)`, e não só por `criado_em`: o timestamp não é
+único, e sem o id como desempate uma execução no mesmo milissegundo do corte seria pulada ou repetida
+entre páginas.
+
+O custo assumido: não dá para pular para a "página 7", só avançar. E não devolvo total de itens,
+porque contar exigiria o `COUNT(*)` que o projeto inteiro evita. O total de execuções do agente já vem
+consolidado no `GET /agents`, que é onde o CS precisa dele.
+
+### Segurança
+
+- `req.clienteId` só é escrito a partir do JWT verificado, **nunca** de body, query ou params. Se o
+  tenant pudesse vir do request, bastaria o cliente A mandar o id do cliente B.
+- O Zod faz strip de campos não declarados, o que mata mass assignment: um `POST /agents` com
+  `cliente_id` no body tem o campo descartado antes de chegar ao SQL.
+- `status: 'bloqueada'` não é aceito no input. É estado que só o servidor atribui, senão o cliente
+  forjaria auditoria de bloqueio que nunca aconteceu.
+- Erro não previsto vira 500 genérico e o detalhe fica só no log. Mensagem crua do Postgres vaza nome
+  de tabela, coluna e constraint.
+- O login compara bcrypt mesmo quando o e-mail não existe, contra um hash falso, para o tempo de
+  resposta não revelar quais e-mails existem na base.
+
+## Rodando localmente
+
+```bash
+# 1. Banco (na raiz do projeto)
+docker compose up -d
+
+# 2. API
+cd backend
+cp .env.example .env
+npm install
+npm run dev          # http://localhost:3333
+```
+
+Credenciais de demo do seed: `cs@acme.dev` / `senha123` (plano Starter, 82/100) e `cs@globex.dev` /
+`senha123` (plano Growth). Os dois existem justamente para dar para testar o isolamento entre
+clientes.
+
+```bash
+# Fluxo completo
+TOKEN=$(curl -s -X POST localhost:3333/auth/login -H 'Content-Type: application/json'   -d '{"email":"cs@acme.dev","senha":"senha123"}' | jq -r .token)
+
+curl -s localhost:3333/agents -H "Authorization: Bearer $TOKEN" | jq
+```
+
+> Instruções completas de execução, `.env.example` comentado e deploy entram na Etapa 6.

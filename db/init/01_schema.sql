@@ -130,8 +130,10 @@ CREATE TABLE agentes (
   periodo_referencia  date NOT NULL DEFAULT periodo_atual(),
 
   -- --- consolidação vitalícia ---
-  -- Evita COUNT(*) para exibir "total de execuções" e para o `totalItems`
-  -- da paginação do histórico.
+  -- Evita COUNT(*) para exibir "total de execuções" do agente no dashboard.
+  -- Conta apenas execuções que rodaram (sucesso e erro): tentativas recusadas
+  -- não são execuções. Por isso não serve como total da paginação, que lista
+  -- todas as tentativas. A paginação é keyset e dispensa total (ver Etapa 2).
   total_execucoes     bigint NOT NULL DEFAULT 0 CHECK (total_execucoes >= 0),
   ultima_execucao_em  timestamptz,
 

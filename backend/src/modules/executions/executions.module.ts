@@ -6,6 +6,7 @@ import { validate } from '../../middlewares/validate';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { QuotaExcedidaError } from '../../shared/AppError';
 import { logger } from '../../shared/logger';
+import { listarHistorico } from './executions.history';
 import { registrarExecucao } from './executions.repository';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,12 @@ const registrarExecucaoSchema = z.object({
 }).refine((d) => d.status === 'erro' || !d.mensagemErro, {
   message: 'mensagemErro só pode ser enviada quando status é "erro".',
   path: ['mensagemErro'],
+});
+
+const historicoQuerySchema = z.object({
+  // Teto de 100 para um cliente não conseguir pedir a tabela inteira em um request.
+  limite: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -110,5 +117,17 @@ executionsRouter.post(
         },
       },
     });
+  }),
+);
+
+/** GET /agents/:id/executions: histórico paginado por keyset. */
+executionsRouter.get(
+  '/:id/executions',
+  validate({ params: paramsSchema, query: historicoQuerySchema }),
+  asyncHandler(async (req, res) => {
+    const { limite, cursor } = req.query as unknown as z.infer<typeof historicoQuerySchema>;
+
+    const pagina = await listarHistorico(obterClienteId(req), req.params.id!, { limite, cursor });
+    res.json(pagina);
   }),
 );
