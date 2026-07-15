@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: rotik-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rotik}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rotik_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-rotik}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Os scripts em init/ rodam em ordem alfabética, uma única vez, quando o
+      # volume de dados está vazio. Para reexecutá-los: `docker compose down -v`.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - rotik_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Sem isso, o backend sobe antes do banco aceitar conexões e morre no boot.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rotik} -d ${POSTGRES_DB:-rotik}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  rotik_pgdata:
