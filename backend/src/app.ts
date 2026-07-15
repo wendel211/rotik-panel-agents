@@ -7,6 +7,7 @@ import { checkDatabaseConnection } from './db/pool';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import { agentsRouter } from './modules/agents/agents.module';
 import { authRouter } from './modules/auth/auth.module';
+import { executionsRouter } from './modules/executions/executions.module';
 import { asyncHandler } from './shared/asyncHandler';
 
 export function criarApp(): express.Express {
@@ -45,6 +46,9 @@ export function criarApp(): express.Express {
 
   app.use('/auth', authRouter);
   app.use('/agents', agentsRouter);
+  // As rotas de execução penduram em /agents/:id/executions, então dividem o
+  // prefixo com o módulo de agentes.
+  app.use('/agents', executionsRouter);
 
   // Ordem importa: 404 para rota desconhecida, e o errorHandler por último de
   // todos, senão os erros passariam direto sem serem formatados.
