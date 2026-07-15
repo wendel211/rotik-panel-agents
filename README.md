@@ -180,3 +180,38 @@ tolerância. E os dados para decidir **já estarão sendo coletados** nas execu�
 **Custo baixo.**
 
 ---
+
+## 2. Entidades e conceitos de negócio identificados
+
+| Entidade | O que é | Vira tabela? |
+|---|---|---|
+| **Cliente** | Empresa contratante. É a **fronteira de tenant** e o **titular da cota**. | ✅ sim |
+| **Plano** | Catálogo comercial. Carrega o limite mensal de execuções. | ✅ sim |
+| **Agente** | Agente de IA configurado por um cliente. Unidade de **atribuição** de consumo. | ✅ sim |
+| **Execução** | Uma chamada ao agente. Tabela de fatos, append-only. | ✅ sim |
+| **Limite** | Citado no briefing como conceito. | ❌ **atributo de Plano** |
+| **Competência** (mês de referência) | A janela contra a qual a cota é medida. | ❌ **atributo** |
+| **Bloqueio** | O evento "execução recusada por limite". | ❌ **estado de Execução** |
+
+As quatro primeiras são diretas. **As três decisões de _não_ criar tabela são as que valem
+discussão** — modelar demais é tão caro quanto modelar de menos:
+
+- **Limite é atributo de Plano, não entidade.** O briefing diz "cada plano tem um limite mensal" — a
+  cardinalidade é 1:1. Uma entidade `Limite` só se justificaria com múltiplos limites por plano
+  (execuções _e_ tokens _e_ agentes), que é a evolução mais provável deste modelo. Não construo
+  agora: é YAGNI, e promover um atributo a tabela depois é uma migração mecânica.
+
+- **Competência não é entidade.** A tentação é criar `uso_mensal (cliente, mês, total)` — uma linha
+  por cliente por mês. É um agregado com identidade própria e daria histórico de consumo de graça.
+  **Rejeitei para o MVP:** o briefing pergunta "quantas execuções **este mês**", nunca "compare com o
+  mês passado". Uma linha por mês exige um upsert no caminho crítico e ainda deixa "qual é o mês
+  atual?" para o código resolver. Guardar a competência **junto do contador** responde a pergunta do
+  briefing com uma única leitura. Quando histórico entrar no escopo, as execuções já contêm os fatos
+  para reconstruir o passado.
+
+- **Bloqueio é um estado de Execução, não entidade.** Uma tentativa recusada **é** uma tentativa de
+  execução — tem agente, cliente e timestamp, exatamente como as outras. Modelar `Bloqueios` à parte
+  duplicaria a estrutura e forçaria unir duas tabelas para responder "o que aconteceu com este agente
+  hoje?", que é literalmente a pergunta que o CS faz.
+
+---
