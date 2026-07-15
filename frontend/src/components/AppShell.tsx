@@ -113,8 +113,16 @@ function NavRail({ cliente, aoSair }: { cliente: { nome: string; email: string }
   return (
     <nav
       aria-label="Navegação principal"
+      // `sticky top-0 h-svh` no desktop: o rail acompanha a rolagem em vez de
+      // subir com a página. Sticky e não fixed de propósito, porque fixed o
+      // tiraria do fluxo do flex e o conteúdo passaria por baixo dele; sticky
+      // mantém a coluna reservada e o layout continua sendo o próprio flex.
+      //
+      // `shrink-0` porque a barra tem largura fixa e não pode ser espremida
+      // quando o conteúdo ao lado for largo.
       className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center justify-around border-t border-hairline bg-rail px-4
-                 sm:static sm:h-auto sm:min-h-svh sm:w-[4.75rem] sm:flex-col sm:justify-start sm:gap-1 sm:border-r sm:border-t-0 sm:px-0 sm:py-4"
+                 sm:sticky sm:inset-x-auto sm:top-0 sm:h-svh sm:w-[4.75rem] sm:shrink-0 sm:flex-col sm:justify-start sm:gap-1
+                 sm:self-start sm:border-r sm:border-t-0 sm:px-0 sm:py-4"
     >
       <span
         aria-hidden="true"
