@@ -15,7 +15,9 @@ const statusConfig: Record<StatusExecucao, { rotulo: string; Icone: typeof Check
 
 function ExecucaoItem({ execucao }: { execucao: Execucao }) {
   const status = statusConfig[execucao.status]
-  const totalTokens = (execucao.tokensEntrada ?? 0) + (execucao.tokensSaida ?? 0)
+  const quantidade = execucao.quantidadeExecucoes ?? 1
+  const tokensPorExecucao = (execucao.tokensEntrada ?? 0) + (execucao.tokensSaida ?? 0)
+  const totalTokens = tokensPorExecucao * quantidade
 
   return (
     <li className={`rounded-xl border bg-panel px-4 py-4 sm:px-5 ${status.classe}`}>
@@ -27,8 +29,9 @@ function ExecucaoItem({ execucao }: { execucao: Execucao }) {
         <time className="text-xs text-lo" dateTime={execucao.criadoEm}>{formatarDataHora(execucao.criadoEm)}</time>
       </div>
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-lo">
+        <span>{formatarNumero(quantidade)} {quantidade === 1 ? 'execução' : 'execuções'}</span>
         {execucao.duracaoMs !== null && <span>{formatarNumero(execucao.duracaoMs)} ms</span>}
-        {totalTokens > 0 && <span>{formatarNumero(totalTokens)} tokens</span>}
+        {totalTokens > 0 && <span>{formatarNumero(totalTokens)} tokens no lote</span>}
         {execucao.duracaoMs === null && totalTokens === 0 && execucao.status === 'sucesso' && <span>Sem métricas adicionais</span>}
       </div>
       {execucao.mensagemErro && <p className="mt-3 text-sm leading-6 text-[#444b66]">{execucao.mensagemErro}</p>}

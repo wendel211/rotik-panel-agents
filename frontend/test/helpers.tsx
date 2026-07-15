@@ -20,7 +20,8 @@ export function agente(overrides: Partial<Agente> = {}): Agente {
     criadoEm: '2026-07-01T12:00:00.000Z',
     ultimaExecucaoEm: '2026-07-15T12:00:00.000Z',
     totalExecucoes: 40,
-    plano: { id: 'plano-1', nome: 'Growth' },
+    plano: { id: 'plano-1', nome: 'Growth', limiteAgentes: 5 },
+    agentes: { usado: 1, limite: 5, restante: 4 },
     consumo: {
       execucoesMesAgente: 20,
       execucoesMesCliente: 40,

@@ -1,4 +1,4 @@
-import { History, LoaderCircle, Play } from 'lucide-react'
+import { History, Play } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { memo } from 'react'
 
@@ -8,7 +8,6 @@ import type { Agente } from '../../types/api'
 interface AgentRowProps {
   agente: Agente
   indice: number
-  simulando: boolean
   aoAbrirHistorico: (agente: Agente) => void
   aoSimular: (agente: Agente) => void
 }
@@ -50,7 +49,7 @@ const ESTILO_POR_MOTIVO = {
   ativo: { borda: 'border-ok-border', mono: 'bg-ok-soft text-ok', selo: 'bg-ok-soft text-ok' },
 } as const
 
-function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimular }: AgentRowProps) {
+function AgentRowComponent({ agente, indice, aoAbrirHistorico, aoSimular }: AgentRowProps) {
   const reduzirMovimento = useReducedMotion()
   const motivo = obterMotivo(agente)
   // A tentativa continua disponível quando a cota acabou para que o avaliador
@@ -131,7 +130,7 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
             type="button"
             className="btn-dark h-9"
             onClick={() => aoSimular(agente)}
-            disabled={!podeSimular || simulando}
+            disabled={!podeSimular}
             title={
               motivo === 'cota'
                 ? 'Tentar execução para demonstrar o bloqueio por cota'
@@ -140,13 +139,9 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
                   : 'Registrar uma execução de demonstração'
             }
           >
-            {simulando ? (
-              <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <Play className="size-3.5" aria-hidden="true" />
-            )}
+            <Play className="size-3.5" aria-hidden="true" />
             <span className="hidden sm:inline">
-              {simulando ? 'Executando' : motivo === 'cota' ? 'Tentar' : 'Simular'}
+              {motivo === 'cota' ? 'Tentar' : 'Simular'}
             </span>
             <span className="sr-only">execução do agente {agente.nome}</span>
           </button>

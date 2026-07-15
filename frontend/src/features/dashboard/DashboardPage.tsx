@@ -6,11 +6,12 @@ import { AppShell } from '../../components/AppShell'
 import { ErrorState } from '../../components/ErrorState'
 import { StatusToast, type Aviso } from '../../components/StatusToast'
 import { ApiError, api } from '../../lib/api'
-import type { Agente, DetalhesLimite } from '../../types/api'
+import type { Agente, DetalhesLimite, SimulacaoExecucao } from '../../types/api'
 import { NewAgentDialog } from '../agents/NewAgentDialog'
 import { useAuth } from '../auth/authContext'
 import { HistoryDialog } from '../executions/HistoryDialog'
 import { LimitDialog } from '../executions/LimitDialog'
+import { SimulationDialog } from '../executions/SimulationDialog'
 import { AgentList } from './AgentList'
 import { DashboardSkeleton } from './DashboardSkeleton'
 import { MetricTiles } from './MetricTiles'
@@ -21,6 +22,8 @@ export function DashboardPage() {
   const queryClient = useQueryClient()
   const [novoAgenteAberto, setNovoAgenteAberto] = useState(false)
   const [agenteHistorico, setAgenteHistorico] = useState<Agente | null>(null)
+  const [agenteSimulacao, setAgenteSimulacao] = useState<Agente | null>(null)
+  const [erroSimulacao, setErroSimulacao] = useState<string | null>(null)
   const [detalhesLimite, setDetalhesLimite] = useState<DetalhesLimite | null>(null)
   const [aviso, setAviso] = useState<Aviso | null>(null)
   const token = sessao?.token ?? ''
@@ -49,28 +52,31 @@ export function DashboardPage() {
       limite: primeiro?.consumo.limiteMensal ?? 0,
       percentual: primeiro?.consumo.percentualUsoCliente ?? 0,
       plano: primeiro?.plano.nome ?? 'n/d',
-      total: agentes.length,
+      limiteAgentes: consulta.data?.meta?.plano.limiteAgentes ?? primeiro?.plano.limiteAgentes ?? 0,
+      total: consulta.data?.meta?.agentes.usado ?? agentes.length,
       ativos: agentes.filter((a) => a.status === 'ativo').length,
       pausados: agentes.filter((a) => a.status !== 'ativo').length,
       bloqueados: agentes.filter((a) => a.bloqueado && a.status === 'ativo').length,
     }
-  }, [agentes])
+  }, [agentes, consulta.data?.meta])
 
   const simulacao = useMutation({
-    mutationFn: (agente: Agente) => {
+    mutationFn: ({ agente, dados }: { agente: Agente; dados: SimulacaoExecucao }) => {
       if (!token) throw new Error('Simulação solicitada sem sessão.')
-      return api.simularExecucao(token, agente.id)
+      return api.simularExecucao(token, agente.id, dados)
     },
-    onSuccess: async (_data, agente) => {
-      setAviso({ tipo: 'sucesso', mensagem: `Execução de ${agente.nome} registrada. A cota foi atualizada.` })
+    onSuccess: async (_data, { agente, dados }) => {
+      setAgenteSimulacao(null)
+      setAviso({ tipo: 'sucesso', mensagem: `${dados.quantidadeExecucoes} execuções de ${agente.nome} processadas. A cota foi atualizada.` })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['agentes', clienteId] }),
         queryClient.invalidateQueries({ queryKey: ['execucoes', agente.id] }),
       ])
     },
-    onError: async (erro, agente) => {
+    onError: async (erro, { agente }) => {
       if (erro instanceof ApiError && erro.codigo === 'LIMITE_PLANO_ATINGIDO' && saoDetalhesLimite(erro.detalhes)) {
         setDetalhesLimite(erro.detalhes)
+        setAgenteSimulacao(null)
         // A tentativa recusada foi gravada pela API, então a lista e o histórico
         // mudaram mesmo o request tendo "falhado". Sem invalidar, a tela mentiria.
         await Promise.all([
@@ -79,13 +85,14 @@ export function DashboardPage() {
         ])
         return
       }
-      setAviso({ tipo: 'erro', mensagem: erro instanceof ApiError ? erro.message : 'Não foi possível simular a execução.' })
+      setErroSimulacao(erro instanceof ApiError ? erro.message : 'Não foi possível simular as execuções.')
     },
   })
 
   const fecharAviso = useCallback(() => setAviso(null), [])
   const abrirHistorico = useCallback((agente: Agente) => setAgenteHistorico(agente), [])
-  const simular = useCallback((agente: Agente) => simulacao.mutate(agente), [simulacao])
+  const simular = useCallback((agente: Agente) => { setErroSimulacao(null); setAgenteSimulacao(agente) }, [])
+  const limiteAgentesAtingido = resumo.limiteAgentes > 0 && resumo.total >= resumo.limiteAgentes
 
   async function atualizarPainel() {
     setAviso(null)
@@ -135,7 +142,7 @@ export function DashboardPage() {
               {consulta.isFetching ? 'Atualizando dados do painel' : 'Atualizar dados do painel'}
             </span>
           </button>
-          <button className="button-primary h-9 text-xs" type="button" onClick={() => setNovoAgenteAberto(true)}>
+          <button className="button-primary h-9 text-xs" type="button" onClick={() => setNovoAgenteAberto(true)} disabled={limiteAgentesAtingido} title={limiteAgentesAtingido ? `Limite de ${resumo.limiteAgentes} agentes do plano atingido` : undefined}>
             <Plus className="size-3.5" aria-hidden="true" />
             Novo agente
           </button>
@@ -173,7 +180,7 @@ export function DashboardPage() {
                 limite={resumo.limite}
                 percentual={resumo.percentual}
                 totalAgentes={resumo.total}
-                agentesAtivos={resumo.ativos}
+                limiteAgentes={resumo.limiteAgentes}
                 planoNome={resumo.plano}
               />
             </div>
@@ -185,14 +192,15 @@ export function DashboardPage() {
                     Agentes
                   </h2>
                   <p className="mt-0.5 text-xs text-lo">
-                    {resumo.total === 1 ? '1 agente nesta conta' : `${resumo.total} agentes nesta conta`}
+                    {limiteAgentesAtingido
+                      ? `Limite de ${resumo.limiteAgentes} agentes do plano ${resumo.plano} atingido`
+                      : resumo.total === 1 ? '1 agente nesta conta' : `${resumo.total} agentes nesta conta`}
                   </p>
                 </div>
               </div>
 
               <AgentList
                 agentes={agentes}
-                simulandoId={simulacao.isPending ? simulacao.variables.id : null}
                 aoAbrirHistorico={abrirHistorico}
                 aoSimular={simular}
                 aoNovoAgente={() => setNovoAgenteAberto(true)}
@@ -202,7 +210,8 @@ export function DashboardPage() {
         )}
       </div>
 
-      <NewAgentDialog aberto={novoAgenteAberto} aoFechar={() => setNovoAgenteAberto(false)} />
+      <NewAgentDialog aberto={novoAgenteAberto} aoFechar={() => setNovoAgenteAberto(false)} limite={resumo.limiteAgentes ? { usado: resumo.total, limite: resumo.limiteAgentes } : undefined} />
+      <SimulationDialog agente={agenteSimulacao} enviando={simulacao.isPending} erro={erroSimulacao} aoFechar={() => setAgenteSimulacao(null)} aoConfirmar={(dados) => agenteSimulacao && simulacao.mutate({ agente: agenteSimulacao, dados })} />
       <HistoryDialog agente={agenteHistorico} aoFechar={() => setAgenteHistorico(null)} />
       <LimitDialog detalhes={detalhesLimite} aoFechar={() => setDetalhesLimite(null)} />
       <StatusToast aviso={aviso} aoFechar={fecharAviso} />

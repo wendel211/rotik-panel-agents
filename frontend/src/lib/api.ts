@@ -2,7 +2,9 @@ import type {
   Agente,
   EnvelopeErro,
   PaginaExecucoes,
+  RespostaAgentes,
   RespostaLogin,
+  SimulacaoExecucao,
 } from '../types/api'
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3333').replace(/\/$/, '')
@@ -101,7 +103,7 @@ export const api = {
     })
   },
 
-  listarAgentes(token: string): Promise<{ data: Agente[] }> {
+  listarAgentes(token: string): Promise<RespostaAgentes> {
     return request('/agents', { token })
   },
 
@@ -115,11 +117,11 @@ export const api = {
     return request(`/agents/${agenteId}/executions?${query.toString()}`, { token })
   },
 
-  simularExecucao(token: string, agenteId: string): Promise<unknown> {
+  simularExecucao(token: string, agenteId: string, dados: SimulacaoExecucao): Promise<unknown> {
     return request(`/agents/${agenteId}/executions`, {
       method: 'POST',
       token,
-      body: { status: 'sucesso' },
+      body: { status: 'sucesso', ...dados },
     })
   },
 }

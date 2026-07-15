@@ -24,9 +24,10 @@ function saoDetalhesDeCampo(valor: unknown): valor is DetalheCampo[] {
 interface NewAgentDialogProps {
   aberto: boolean
   aoFechar: () => void
+  limite?: { usado: number; limite: number } | undefined
 }
 
-export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
+export function NewAgentDialog({ aberto, aoFechar, limite }: NewAgentDialogProps) {
   const { sessao } = useAuth()
   const queryClient = useQueryClient()
   const [nome, setNome] = useState('')
@@ -116,6 +117,7 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
 
       <form onSubmit={enviar} noValidate>
         <div className="space-y-5 px-6 py-6 sm:px-7">
+          {limite && <p className="rounded-xl border border-hairline bg-[#f8faff] px-4 py-3 text-sm text-lo">Este plano permite {limite.limite} agentes. A conta usa {limite.usado} no momento.</p>}
           <div>
             <label className="mb-2 block text-sm font-medium text-[#444b66]" htmlFor="nome-agente">Nome do agente</label>
             <input

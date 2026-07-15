@@ -21,7 +21,8 @@ O MVP entrega:
 - autenticação simplificada com JWT e isolamento por cliente;
 - listagem de agentes com consumo mensal, limite e estado operacional;
 - cadastro de agentes;
-- registro de execução com bloqueio atômico ao atingir a cota;
+- registro de lotes de execução com tokens por chamada e bloqueio atômico ao atingir a cota;
+- limite de agentes por plano, inclusive sob cadastros concorrentes;
 - histórico paginado, incluindo tentativas bloqueadas;
 - estados de loading, erro, vazio e feedback de atualização;
 - interface responsiva, acessível e integrada à API real.
@@ -31,7 +32,11 @@ Contas públicas de demonstração:
 | Conta | E-mail | Senha | Cenário inicial |
 |---|---|---|---|
 | Acme Atendimento | `cs@acme.dev` | `senha123` | plano Growth, 82 de 100 execuções |
-| Globex Operações | `cs@globex.dev` | `senha123` | plano Scale, 140 de 1000 execuções |
+| Globex Operações | `cs@globex.dev` | `senha123` | plano Pro, 140 de 1000 execuções |
+
+O plano Growth permite até 5 agentes e o Pro até 10. A cota mensal continua sendo medida em execuções,
+como define o briefing; tokens de entrada e saída são métricas de observabilidade e custo, não a unidade
+de bloqueio do plano.
 
 Essas credenciais existem somente para avaliação do desafio e não representam uma estratégia de
 autenticação para produção.
@@ -48,7 +53,7 @@ adotadas para conseguir avançar com segurança.
 | O limite pertence ao cliente ou a cada agente? | A cota é compartilhada por todos os agentes do cliente. | O bloqueio precisa serializar o consumo na linha do cliente, não na linha do agente. |
 | O usuário do MVP é o CS da Rotik ou o cliente final? | A autenticação representa um cliente. | O isolamento entre tenants fica demonstrável, mas uma visão interna de CS com busca entre contas fica fora do MVP. |
 | A API executa o agente de IA? | Não. Ela registra uma execução já solicitada por outro serviço. | O projeto controla consumo e auditoria sem inventar integração com um provedor de IA. |
-| O que conta como execução? | Toda chamada aceita consome uma unidade, independentemente do agente. | A regra é simples e auditável. Tokens, duração e custo financeiro não entram no cálculo. |
+| O que conta como execução? | Toda chamada aceita consome uma unidade, independentemente do agente. | A simulação pode enviar um lote para acelerar o teste, mas a cota avança pela quantidade de chamadas. Tokens e duração ficam registrados como métricas. |
 | O período mensal segue mês calendário ou ciclo de cobrança? | Mês calendário em UTC. | O contador pode ser reiniciado de forma preguiçosa sem depender de cron. Um produto real precisaria confirmar fuso e ciclo contratual. |
 | O bloqueio é rígido ou permite excedente pago? | O bloqueio é rígido ao atingir o limite. | A tentativa excedente recebe `429`, não incrementa consumo e permanece no histórico como bloqueada. |
 | Agente pausado pode registrar execução? | Não. | A API rejeita a operação antes de consumir cota. |
@@ -57,7 +62,7 @@ adotadas para conseguir avançar com segurança.
 
 | Conceito | Responsabilidade |
 |---|---|
-| Plano | Define nome, quantidade máxima de agentes ativos e limite mensal de execuções. |
+| Plano | Define nome, quantidade máxima de agentes cadastrados e limite mensal de execuções. |
 | Cliente | Tenant autenticado, plano contratado e contador consolidado da competência atual. |
 | Agente | Automação pertencente a um único cliente, com estado ativo ou pausado. |
 | Execução | Fato auditável aceito ou bloqueado, vinculado ao cliente e ao agente. |
@@ -98,13 +103,13 @@ O modelo permanece normalizado para plano, cliente, agente e execução. A exce�
 `clientes.execucoes_mes_atual`, um contador consolidado que torna a leitura do painel constante, sem
 executar `COUNT(*)` sobre um histórico que cresce continuamente.
 
-Ao registrar uma execução, a API:
+Ao registrar uma execução ou lote, a API:
 
 1. identifica o cliente exclusivamente pelo JWT validado;
 2. verifica se o agente pertence ao mesmo cliente e está ativo;
-3. atualiza o contador somente quando ele ainda é menor que o limite;
-4. grava a execução aceita na mesma transação;
-5. grava a tentativa bloqueada sem consumir cota quando não existe saldo.
+3. atualiza o contador somente quando existe saldo para o lote inteiro;
+4. grava a execução aceita e a quantidade representada na mesma transação;
+5. grava a tentativa bloqueada sem consumo parcial quando o lote ultrapassa o saldo.
 
 O update condicional e o lock da linha eliminam a corrida entre requisições concorrentes. As chaves
 estrangeiras compostas reforçam no banco que uma execução não pode misturar cliente e agente de tenants
@@ -128,7 +133,7 @@ visível e evita esconder o trecho mais importante atrás de abstrações de ORM
 | `POST` | `/auth/login` | Retorna JWT e dados do cliente. |
 | `GET` | `/agents` | Lista agentes e consumo consolidado da conta. |
 | `POST` | `/agents` | Cadastra um agente no cliente autenticado. |
-| `POST` | `/agents/:id/executions` | Registra ou bloqueia uma execução. |
+| `POST` | `/agents/:id/executions` | Registra ou bloqueia atomicamente um lote de 1 a 1.000 execuções. |
 | `GET` | `/agents/:id/executions` | Lista histórico com paginação por cursor. |
 
 O `clienteId` nunca é aceito pelo body, query string ou parâmetro de rota. Ele é escrito no request
@@ -242,6 +247,11 @@ passaram porque várias requisições leram o mesmo saldo antes do update. A cor
 para um update condicional dentro da transação. O teste atual aceita exatamente 100 e devolve `429` nas
 12 restantes.
 
+A evolução para lotes mantém a mesma garantia: 12 requisições concorrentes de 10 execuções contra uma
+cota de 100 aceitam exatamente 10 lotes. Os dois restantes recebem `429`, e nenhum lote é parcialmente
+consumido. O limite de agentes também é serializado na linha do cliente; oito cadastros concorrentes com
+apenas quatro vagas terminam com exatamente cinco agentes no Growth.
+
 No tema claro, algumas cores não mudavam porque `@apply` havia convertido tokens em valores literais no
 build. O override do tema alterava a variável, mas o componente já não a utilizava. As superfícies que
 dependem do tema passaram a referenciar propriedades CSS diretamente.
@@ -284,7 +294,9 @@ Variáveis principais:
 | `VITE_API_URL` | Frontend | URL da API incorporada no build |
 | `ALLOW_DEMO_SEED` | Banco | autorização explícita para dados de demonstração |
 
-As migrations são versionadas, registram checksum e usam advisory lock. Isso permite executar
+As migrations são versionadas, registram checksum e usam advisory lock. A migration de limites adiciona
+as colunas sem alterar checksums já aplicados, renomeia o plano Scale para Pro e configura Growth com 5 e
+Pro com 10 agentes. Isso permite executar
 `npm run db:deploy` em cada cold start sem duplicar schema ou seed e impede dois containers de aplicar a
 mesma migration simultaneamente.
 

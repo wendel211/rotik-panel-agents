@@ -5,7 +5,6 @@ import { AgentRow } from './AgentRow'
 
 interface AgentListProps {
   agentes: Agente[]
-  simulandoId: string | null
   aoAbrirHistorico: (agente: Agente) => void
   aoSimular: (agente: Agente) => void
   aoNovoAgente: () => void
@@ -13,7 +12,6 @@ interface AgentListProps {
 
 export function AgentList({
   agentes,
-  simulandoId,
   aoAbrirHistorico,
   aoSimular,
   aoNovoAgente,
@@ -29,7 +27,6 @@ export function AgentList({
           key={agente.id}
           agente={agente}
           indice={indice}
-          simulando={simulandoId === agente.id}
           aoAbrirHistorico={aoAbrirHistorico}
           aoSimular={aoSimular}
         />

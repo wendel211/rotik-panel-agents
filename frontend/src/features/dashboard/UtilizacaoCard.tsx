@@ -10,7 +10,7 @@ interface UtilizacaoCardProps {
   limite: number
   percentual: number
   totalAgentes: number
-  agentesAtivos: number
+  limiteAgentes: number
   planoNome: string
 }
 
@@ -28,7 +28,7 @@ export function UtilizacaoCard({
   limite,
   percentual,
   totalAgentes,
-  agentesAtivos,
+  limiteAgentes,
   planoNome,
 }: UtilizacaoCardProps) {
   const possuiCota = limite > 0
@@ -49,10 +49,10 @@ export function UtilizacaoCard({
       <div className="space-y-5">
         <Medidor
           rotulo="Agentes cadastrados"
-          valor={`${agentesAtivos}/${totalAgentes || 0}`}
-          percentual={totalAgentes > 0 ? (agentesAtivos / totalAgentes) * 100 : 0}
+          valor={`${totalAgentes}/${limiteAgentes || 0}`}
+          percentual={limiteAgentes > 0 ? (totalAgentes / limiteAgentes) * 100 : 0}
           cor="bg-brand-600"
-          descricao={`${agentesAtivos} de ${totalAgentes} agentes estão ativos`}
+          descricao={`${totalAgentes} de ${limiteAgentes} vagas de agentes utilizadas`}
         />
 
         <Medidor

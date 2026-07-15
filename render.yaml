@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     region: virginia
-    branch: quality-and-deployment
+    branch: main
     autoDeployTrigger: checksPass
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .

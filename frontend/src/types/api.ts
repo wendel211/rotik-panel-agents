@@ -44,6 +44,12 @@ export interface Agente {
   plano: {
     id: string
     nome: string
+    limiteAgentes: number
+  }
+  agentes: {
+    usado: number
+    limite: number
+    restante: number
   }
   consumo: {
     execucoesMesAgente: number
@@ -54,6 +60,23 @@ export interface Agente {
   }
 }
 
+export interface LimitesAgentes {
+  plano: Agente['plano']
+  agentes: Agente['agentes']
+}
+
+export interface RespostaAgentes {
+  data: Agente[]
+  // Opcional durante o rollout: a versão anterior da API retornava apenas data.
+  meta?: LimitesAgentes
+}
+
+export interface SimulacaoExecucao {
+  quantidadeExecucoes: number
+  tokensEntrada: number
+  tokensSaida: number
+}
+
 export type StatusExecucao = 'sucesso' | 'erro' | 'bloqueada'
 
 export interface Execucao {
@@ -62,6 +85,7 @@ export interface Execucao {
   duracaoMs: number | null
   tokensEntrada: number | null
   tokensSaida: number | null
+  quantidadeExecucoes: number
   mensagemErro: string | null
   criadoEm: string
 }
