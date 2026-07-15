@@ -32,8 +32,8 @@ por isso que o histórico de commits é granular.
 | **2** | **Backend REST API** | ✅ |
 | **3** | **Frontend (SPA)** | ✅ |
 | **4** | **Integração com a API real** | ✅ |
-| 5 | Qualidade, testes e debug | ⏳ |
-| 6 | DevOps (CI, deploy, env) | ⏳ |
+| **5** | **Qualidade, testes e debug** | ✅ |
+| 6 | DevOps (CI, deploy, env) | 🚧 CI concluído; deploy pendente |
 | 7 | Mentalidade de produto | ⏳ |
 
 **Convenção de commits:** [Conventional Commits 1.0.0](https://www.conventionalcommits.org/pt-br/v1.0.0/),
@@ -61,6 +61,11 @@ no formato `<tipo>(<escopo>): <descrição no imperativo>`.
   - [Erros e estados da interface](#erros-e-estados-da-interface)
   - [Acessibilidade, responsividade e performance](#acessibilidade-responsividade-e-performance)
   - [Rodando o frontend](#rodando-o-frontend)
+- [Etapa 5: Qualidade, testes e debug](#etapa-5-qualidade-testes-e-debug)
+  - [Estratégia e cobertura](#estratégia-e-cobertura)
+  - [Concorrência com Postgres real](#concorrência-com-postgres-real)
+  - [Executando os testes](#executando-os-testes)
+- [Etapa 6: Integração contínua](#etapa-6-integração-contínua)
 
 ---
 
@@ -868,8 +873,9 @@ Pausado é **amarelo** (48deg no escuro, 46deg no claro) e bloqueado é **vermel
 Antes eram âmbar e rose: âmbar puxa laranja e chegava perto do vermelho, justo o estado vizinho que
 não pode ser confundido, e rose puxa rosa e não lia como alarme. Os quatro passam 4.5:1.
 
-O amarelo do tema claro é profundo, quase mostarda, e isso é física da cor, não escolha: amarelo é
-intrinsecamente luminoso, e o mais vivo que passa AA sobre branco já puxa oliva.
+No tema claro, os cards permanecem neutros. Verde, amarelo e vermelho aparecem em bordas, monogramas e
+selos com fundos semânticos suaves; assim o estado continua reconhecível sem criar manchas saturadas por
+trás de nome, consumo e ações. Texto e ícones usam tons mais profundos para manter contraste AA.
 
 ### Tipografia
 
@@ -910,3 +916,81 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+---
+
+# Etapa 5: Qualidade, testes e debug
+
+## Estratégia e cobertura
+
+Os testes foram organizados pela fronteira que precisam provar, e não por uma meta artificial de linhas:
+
+- **Backend:** integração HTTP contra Postgres real para autenticação, isolamento entre tenants, cadastro,
+  validação, reset mensal preguiçoso, histórico keyset, bloqueio e auditoria; middlewares de fronteira têm
+  testes unitários para os caminhos que não dependem de I/O.
+- **Frontend:** comportamento observado pelo usuário com Vitest, Testing Library e JSDOM. A suíte cobre
+  login, sessão expirada, cliente HTTP, tema, formulários, diálogos, estados vazio/loading/erro, paginação,
+  simulação e feedback de limite.
+- **Quality gate:** statements, branches, functions e lines precisam ficar em **90% ou mais** nos dois
+  projetos. O comando termina com erro se qualquer uma das quatro métricas cair abaixo desse piso.
+
+Resultado local desta etapa:
+
+| Projeto | Testes | Statements | Branches | Functions | Lines |
+|---|---:|---:|---:|---:|---:|
+| Backend | 12 | 97,38% | 93,25% | 95,23% | 97,28% |
+| Frontend | 28 | 97,62% | 91,92% | 98,37% | 99,10% |
+
+Arquivos de bootstrap, declarações de tipo, componentes puramente estáticos e o logger são excluídos da
+instrumentação. Eles continuam cobertos por typecheck/build; a exclusão evita fingir valor com testes que
+apenas importariam wiring sem comportamento.
+
+## Concorrência com Postgres real
+
+O teste central não usa mock do repositório nem banco em memória. O setup cria um banco `rotik_test`
+isolado, aplica o schema real e dispara **112 requests HTTP concorrentes** para uma conta cujo limite é
+100. O invariante esperado e verificado é:
+
+- 100 respostas `201`, 100 execuções cobradas e contador consolidado exatamente em 100;
+- 12 respostas `429`, 12 tentativas `bloqueada` preservadas para auditoria;
+- nenhum incremento além da cota e nenhuma divergência entre contador e fatos.
+
+Esse cenário é o motivo de a Etapa 5 trazer parte da Etapa 6: sem um Postgres de verdade no CI, o risco
+financeiro mais importante do projeto seria testado apenas na máquina de quem desenvolveu.
+
+## Executando os testes
+
+O container `rotik-db` precisa estar ativo para a suíte do backend. O setup usa `rotik_test` e nunca limpa
+o banco de desenvolvimento `rotik`.
+
+```bash
+# na raiz
+docker compose up -d
+
+# backend: integração real + cobertura
+cd backend
+npm ci
+npm run test:coverage
+
+# frontend: comportamento + cobertura
+cd ../frontend
+npm ci
+npm run test:coverage
+```
+
+Para uma verificação equivalente ao CI, execute também `typecheck` e `build` no backend, e `lint`,
+`typecheck` e `build` no frontend.
+
+---
+
+# Etapa 6: Integração contínua
+
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em todo pull request e em pushes
+para `main`, com permissões somente de leitura e cancelamento de execuções obsoletas da mesma branch.
+
+O job de backend sobe PostgreSQL 16 como service container, espera o healthcheck e executa instalação
+reprodutível (`npm ci`), typecheck, build e a suíte com o gate de 90%. O job de frontend executa lint,
+typecheck, build e o mesmo gate de cobertura. Os relatórios LCOV dos dois projetos ficam anexados à
+execução do GitHub Actions para diagnóstico de regressões.
+
+Deploy e observabilidade de produção continuam pendentes para concluir o restante da Etapa 6.
