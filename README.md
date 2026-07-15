@@ -6,7 +6,7 @@ MVP que permite ver, por cliente, quais agentes de IA estão ativos, quanto cada
 mensal do plano contratado, e bloquear novas execuções quando o limite é atingido.
 
 **Stack:** Node.js + TypeScript (backend) · React + TypeScript (frontend) · PostgreSQL
-**Deploy:** _publicação e escolha de provedor reservadas para o próximo passo_
+**Deploy:** [Frontend na Vercel](https://rotik-panel-agents.vercel.app) · [API na Render](https://rotik-agents-api-wendel211.onrender.com/health)
 
 <details>
 <summary><b>Por que essa stack</b></summary>
@@ -33,7 +33,7 @@ por isso que o histórico de commits é granular.
 | **3** | **Frontend (SPA)** | ✅ |
 | **4** | **Integração com a API real** | ✅ |
 | **5** | **Qualidade, testes e debug** | ✅ |
-| 6 | DevOps (CI, deploy, env) | 🚧 Preparação concluída; publicação pendente |
+| **6** | **DevOps (CI, deploy, env)** | ✅ |
 | 7 | Mentalidade de produto | ⏳ |
 
 **Convenção de commits:** [Conventional Commits 1.0.0](https://www.conventionalcommits.org/pt-br/v1.0.0/),
@@ -1005,15 +1005,15 @@ Para uma verificação equivalente ao CI, execute também `lint`, `typecheck` e 
 
 # Etapa 6: DevOps e preparação para produção
 
-Tudo que independe de criar recursos em um provedor está preparado neste repositório. A escolha da
-plataforma, a criação do banco gerenciado e a publicação dos URLs serão feitas no passo seguinte, para
-não acoplar a arquitetura a um fornecedor antes dessa decisão.
+A aplicação está publicada com o frontend estático na Vercel e a API Docker na Render, conectada a um
+PostgreSQL gerenciado pela própria Render. O frontend fala somente com a URL HTTPS da API; o backend
+restringe o CORS ao domínio público da Vercel e o banco aceita apenas conexões pela rede privada.
 
 ## Variáveis de ambiente e secrets
 
-Nenhuma credencial de runtime está escrita no código ou no manifesto do Compose. Arquivos `.env` são
-ignorados pelo Git; apenas modelos documentados entram no repositório. Em produção, valores sensíveis
-devem ser configurados no secret manager do provedor, nunca copiados do exemplo local.
+Nenhuma credencial de runtime está escrita no código ou nos manifestos. Arquivos `.env` são ignorados
+pelo Git; apenas modelos documentados entram no repositório. Na Render, `JWT_SECRET` é gerado pelo
+provedor e `DATABASE_URL` é referenciada diretamente do banco, sem expor seus valores no Blueprint.
 
 | Variável | Serviço | Sensível? | Função |
 |---|---|---:|---|
@@ -1118,7 +1118,15 @@ trace, para evitar vazamento e explosão de cardinalidade.
 
 ## Preparação para deploy
 
-O repositório agora oferece dois artefatos independentes de provedor:
+Arquitetura publicada:
+
+- **Vercel:** build do Vite, fallback para rotas da SPA, cache imutável de assets e headers de segurança
+  definidos em [`vercel.json`](vercel.json).
+- **Render:** API Docker e PostgreSQL privado descritos como infraestrutura em
+  [`render.yaml`](render.yaml), na região de Virginia e no plano gratuito para demonstração.
+- **Entrega condicionada ao CI:** a Render só inicia auto-deploy depois que os checks do GitHub passam.
+
+Os Dockerfiles continuam permitindo executar ou publicar a mesma aplicação fora desses provedores:
 
 - [`backend/Dockerfile`](backend/Dockerfile): build multi-stage, dependências de produção, execução como
   usuário sem privilégios, shutdown gracioso e healthcheck que também valida o PostgreSQL.
@@ -1132,25 +1140,25 @@ docker build -f backend/Dockerfile -t rotik-api .
 docker build --build-arg VITE_API_URL=https://api.exemplo.com -t rotik-web ./frontend
 ```
 
-O PostgreSQL gerenciado não executa os arquivos de `docker-entrypoint-initdb.d`. Para um banco novo,
-prepare o schema a partir da imagem da API ou da pasta `backend`:
+O PostgreSQL gerenciado não executa os arquivos de `docker-entrypoint-initdb.d`. No start da API,
+`db:deploy` aplica migrations versionadas dentro de transação, usa advisory lock contra boots
+concorrentes e confere o checksum das migrations já executadas:
 
 ```bash
-DATABASE_URL='postgresql://...' DATABASE_SSL=true npm run db:schema
+DATABASE_URL='postgresql://...' DATABASE_SSL=true npm run db:deploy
 ```
 
-A instância pública do desafio pode receber as contas conhecidas descritas na seção de execução local.
-Essa é uma demo descartável, sem dados reais. O comando exige uma confirmação explícita para evitar que
-o seed seja aplicado por engano em outro ambiente:
+A instância pública do desafio recebe as contas conhecidas descritas na seção de execução local. Essa é
+uma demo descartável, sem dados reais; o seed continua protegido por autorização explícita:
 
 ```bash
 DATABASE_URL='postgresql://...' DATABASE_SSL=true ALLOW_DEMO_SEED=true npm run db:seed:demo
 ```
 
-Schema e seed são operações de bootstrap para banco vazio. Evoluções posteriores exigiriam migrations
-versionadas; repetir esses comandos sobre uma base preenchida não faz parte do fluxo de atualização.
+Validação executada depois da publicação: build da Vercel concluído sem vulnerabilidades conhecidas,
+`/health` respondeu com aplicação e banco saudáveis, e o login da conta demo foi aceito pela API real.
 
-No próximo passo ainda será necessário escolher a plataforma, criar PostgreSQL gerenciado, cadastrar os
-secrets, executar o bootstrap documentado, publicar API e frontend, configurar `CORS_ORIGIN`, validar
-HTTPS/healthcheck e colocar os dois URLs reais no topo deste README. A decisão do provedor deve considerar
-PostgreSQL gerenciado, região, cold start, logs, rollback e custo; nenhuma preferência foi fixada aqui.
+O plano gratuito é adequado ao desafio, não a uma operação comercial: a API pode dormir após inatividade
+e levar cerca de 50 segundos no primeiro acesso; o PostgreSQL gratuito expira após 30 dias e não inclui
+backups. Em produção eu usaria banco persistente com backups e point-in-time recovery, instância da API
+sem cold start e alertas sobre disponibilidade, latência, erros e saturação do pool.
