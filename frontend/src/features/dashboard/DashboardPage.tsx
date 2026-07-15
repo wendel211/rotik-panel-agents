@@ -144,6 +144,7 @@ export function DashboardPage() {
                 pausados={resumo.pausados}
                 bloqueados={resumo.bloqueados}
                 execucoesMes={resumo.usado}
+                limiteMensal={resumo.limite}
               />
               <UtilizacaoCard
                 usado={resumo.usado}

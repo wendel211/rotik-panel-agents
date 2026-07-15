@@ -1,8 +1,8 @@
-import { History, LoaderCircle, PauseCircle, Play } from 'lucide-react'
+import { History, LoaderCircle, Play } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { memo } from 'react'
 
-import { formatarDataHora, formatarNumero } from '../../lib/format'
+import { formatarDataHora, formatarNumero, obterIniciais } from '../../lib/format'
 import type { Agente } from '../../types/api'
 
 interface AgentRowProps {
@@ -28,14 +28,22 @@ function obterMotivo(agente: Agente): MotivoBloqueio {
   return null
 }
 
+const ESTILO_POR_MOTIVO = {
+  cota: { faixa: 'bg-danger', mono: 'bg-danger/12 text-danger', selo: 'bg-danger/15 text-danger' },
+  pausado: { faixa: 'bg-warn', mono: 'bg-warn/12 text-warn', selo: 'bg-warn/15 text-warn' },
+  arquivado: { faixa: 'bg-warn', mono: 'bg-warn/12 text-warn', selo: 'bg-warn/15 text-warn' },
+  ativo: { faixa: 'bg-ok/60', mono: 'bg-accent/12 text-accent', selo: 'bg-ok/15 text-ok' },
+} as const
+
 function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimular }: AgentRowProps) {
   const reduzirMovimento = useReducedMotion()
   const motivo = obterMotivo(agente)
   const podeSimular = motivo === null
+  const estilo = ESTILO_POR_MOTIVO[motivo ?? 'ativo']
 
   return (
     <motion.li
-      className="panel-tile relative overflow-hidden p-4 transition-colors duration-200 hover:border-brand-700/40"
+      className="panel-tile group relative overflow-hidden p-4 transition-colors duration-200 hover:border-brand-700/40"
       initial={reduzirMovimento ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       // Escalonado, mas com teto: em uma lista longa, atraso proporcional faria
@@ -44,50 +52,67 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
     >
       {/* Faixa de estado. Redundante com o selo de propósito: cor sozinha não
           pode carregar significado (WCAG 1.4.1). */}
-      <span
-        aria-hidden="true"
-        className={`absolute inset-y-0 left-0 w-0.5 ${
-          motivo === 'cota' ? 'bg-danger' : motivo ? 'bg-warn' : 'bg-ok/60'
-        }`}
-      />
+      <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-0.5 ${estilo.faixa}`} />
 
-      <div className="flex flex-col gap-4 pl-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate font-medium text-hi">{agente.nome}</h3>
-            <Selo motivo={motivo} />
+      <div className="flex flex-col gap-4 pl-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          {/* Monograma. Dá identidade visual a cada agente e é o âncora do olho
+              ao varrer a lista, no lugar do ícone genérico repetido em todas as
+              linhas. A cor vem do estado, então ele também informa. */}
+          <span
+            aria-hidden="true"
+            className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg text-[0.7rem] font-bold ${estilo.mono}`}
+          >
+            {obterIniciais(agente.nome)}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="truncate font-medium text-hi">{agente.nome}</h3>
+              <Selo motivo={motivo} />
+            </div>
+
+            {agente.descricao && (
+              <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-lo">{agente.descricao}</p>
+            )}
+
+            {/* Números na frente, rótulos atrás. A versão anterior repetia
+                "Neste mês:" e "Total:" em toda linha com o mesmo peso do valor,
+                e o olho tinha que ler o rótulo para achar o dado. */}
+            <dl className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
+              <div className="flex items-baseline gap-1.5">
+                <dd className="font-mono text-sm font-semibold tabular-nums text-hi">
+                  {formatarNumero(agente.consumo.execucoesMesAgente)}
+                </dd>
+                <dt className="text-lo">no mês</dt>
+              </div>
+
+              <span className="text-hi/15" aria-hidden="true">
+                |
+              </span>
+
+              <div className="flex items-baseline gap-1.5">
+                <dd className="font-mono tabular-nums text-lo">{formatarNumero(agente.totalExecucoes)}</dd>
+                <dt className="text-lo/70">no total</dt>
+              </div>
+
+              <span className="text-hi/15" aria-hidden="true">
+                |
+              </span>
+
+              <div>
+                <dt className="sr-only">Última execução</dt>
+                <dd className="text-lo/70">
+                  {agente.ultimaExecucaoEm
+                    ? formatarDataHora(agente.ultimaExecucaoEm)
+                    : 'nunca executou'}
+                </dd>
+              </div>
+            </dl>
           </div>
-
-          {agente.descricao && (
-            <p className="mt-1 line-clamp-1 text-xs leading-5 text-lo">{agente.descricao}</p>
-          )}
-
-          <dl className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-lo">
-            <div className="flex items-center gap-1.5">
-              <dt>Neste mês:</dt>
-              {/* Atribuição por agente, em número absoluto e não em barra: a cota
-                  é do cliente, então uma barra aqui repetiria o mesmo percentual
-                  em todas as linhas e leria como bug. */}
-              <dd className="font-mono font-semibold tabular-nums text-hi">
-                {formatarNumero(agente.consumo.execucoesMesAgente)}
-              </dd>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <dt>Total:</dt>
-              <dd className="font-mono tabular-nums">{formatarNumero(agente.totalExecucoes)}</dd>
-            </div>
-            <div>
-              <dt className="sr-only">Última execução</dt>
-              <dd>
-                {agente.ultimaExecucaoEm
-                  ? `Última ${formatarDataHora(agente.ultimaExecucaoEm)}`
-                  : 'Nunca executou'}
-              </dd>
-            </div>
-          </dl>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 pl-12 sm:pl-0">
           <button
             type="button"
             className="btn-dark h-9"
@@ -134,7 +159,7 @@ function Selo({ motivo }: { motivo: MotivoBloqueio }) {
   if (motivo) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-warn/15 px-2 py-0.5 text-[0.68rem] font-semibold capitalize text-warn">
-        <PauseCircle className="size-3" aria-hidden="true" />
+        <span className="size-1.5 rounded-full bg-warn" aria-hidden="true" />
         {motivo}
       </span>
     )
