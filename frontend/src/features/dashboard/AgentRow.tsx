@@ -69,7 +69,7 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500">Consumo deste agente</p>
             <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-              {formatarNumero(agente.consumo.execucoesMesAgente)}
+              {formatarNumero(agente.consumo.execucoesMesAgente)}{' '}
               <span className="ml-1.5 text-sm font-normal text-slate-500">execuções no mês</span>
             </p>
           </div>
@@ -81,7 +81,7 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
           <div className="h-full rounded-full bg-blue-500" style={{ width: `${percentualAgente}%` }} />
         </div>
         <p className="sr-only">
-          Este agente consumiu {agente.consumo.execucoesMesAgente} das {agente.consumo.limiteMensal} execuções disponíveis no pool do cliente.
+          Este agente consumiu {formatarNumero(agente.consumo.execucoesMesAgente)} das {formatarNumero(agente.consumo.limiteMensal)} execuções disponíveis no pool do cliente.
         </p>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-end gap-2">

@@ -11,7 +11,10 @@ interface LimitDialogProps {
 
 export function LimitDialog({ detalhes, aoFechar }: LimitDialogProps) {
   const dataLiberacao = detalhes
-    ? new Date(Date.now() + detalhes.retryAfterSegundos * 1_000).toLocaleDateString('pt-BR', { dateStyle: 'long' })
+    ? new Date(Date.now() + detalhes.retryAfterSegundos * 1_000).toLocaleString('pt-BR', {
+        dateStyle: 'long',
+        timeStyle: 'short',
+      })
     : ''
 
   return (
@@ -37,7 +40,7 @@ export function LimitDialog({ detalhes, aoFechar }: LimitDialogProps) {
               <p className="mt-1 text-xl font-semibold text-red-950">{formatarNumero(detalhes.usado)} de {formatarNumero(detalhes.limite)}</p>
             </div>
             <div className="bg-red-50 px-4 py-4">
-              <p className="text-xs font-medium uppercase tracking-[0.08em] text-red-700">Liberação</p>
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-red-700">Liberação prevista</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-red-950">{dataLiberacao}</p>
             </div>
           </div>
