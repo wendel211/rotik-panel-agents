@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, LogOut, Plus } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { BookOpen, Plus, RefreshCw } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 
-import { BrandLogo } from '../../components/BrandLogo'
+import { AppShell } from '../../components/AppShell'
 import { ErrorState } from '../../components/ErrorState'
 import { StatusToast, type Aviso } from '../../components/StatusToast'
 import { ApiError, api } from '../../lib/api'
-import { obterIniciais } from '../../lib/format'
 import type { Agente, DetalhesLimite } from '../../types/api'
 import { NewAgentDialog } from '../agents/NewAgentDialog'
 import { useAuth } from '../auth/authContext'
@@ -14,7 +13,8 @@ import { HistoryDialog } from '../executions/HistoryDialog'
 import { LimitDialog } from '../executions/LimitDialog'
 import { AgentList } from './AgentList'
 import { DashboardSkeleton } from './DashboardSkeleton'
-import { QuotaOverview } from './QuotaOverview'
+import { MetricTiles } from './MetricTiles'
+import { UtilizacaoCard } from './UtilizacaoCard'
 
 export function DashboardPage() {
   const { sessao, sair } = useAuth()
@@ -35,7 +35,26 @@ export function DashboardPage() {
     enabled: Boolean(sessao),
   })
 
-  const agentes = consulta.data?.data ?? []
+  const agentes = useMemo(() => consulta.data?.data ?? [], [consulta.data])
+
+  /**
+   * A cota é do CLIENTE, mas a API a devolve repetida em cada agente, porque a
+   * view junta agente e cliente. Derivar aqui, uma vez, evita que cada
+   * componente leia `agentes[0]` e quebre quando a lista está vazia.
+   */
+  const resumo = useMemo(() => {
+    const primeiro = agentes[0]
+    return {
+      usado: primeiro?.consumo.execucoesMesCliente ?? 0,
+      limite: primeiro?.consumo.limiteMensal ?? 0,
+      percentual: primeiro?.consumo.percentualUsoCliente ?? 0,
+      plano: primeiro?.plano.nome ?? 'n/d',
+      total: agentes.length,
+      ativos: agentes.filter((a) => a.status === 'ativo').length,
+      pausados: agentes.filter((a) => a.status !== 'ativo').length,
+      bloqueados: agentes.filter((a) => a.bloqueado && a.status === 'ativo').length,
+    }
+  }, [agentes])
 
   const simulacao = useMutation({
     mutationFn: (agente: Agente) => {
@@ -52,6 +71,8 @@ export function DashboardPage() {
     onError: async (erro, agente) => {
       if (erro instanceof ApiError && erro.codigo === 'LIMITE_PLANO_ATINGIDO' && saoDetalhesLimite(erro.detalhes)) {
         setDetalhesLimite(erro.detalhes)
+        // A tentativa recusada foi gravada pela API, então a lista e o histórico
+        // mudaram mesmo o request tendo "falhado". Sem invalidar, a tela mentiria.
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['agentes', clienteId] }),
           queryClient.invalidateQueries({ queryKey: ['execucoes', agente.id] }),
@@ -63,60 +84,44 @@ export function DashboardPage() {
   })
 
   const fecharAviso = useCallback(() => setAviso(null), [])
+  const abrirHistorico = useCallback((agente: Agente) => setAgenteHistorico(agente), [])
+  const simular = useCallback((agente: Agente) => simulacao.mutate(agente), [simulacao])
 
   if (!sessao) return null
 
   return (
-    <div className="min-h-svh bg-canvas">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-brand-950/95 text-white backdrop-blur-xl">
-        <div className="mx-auto flex h-[4.5rem] max-w-[82rem] items-center justify-between px-5 sm:px-8">
-          <div className="flex items-center gap-5">
-            <BrandLogo />
-            <span className="hidden h-6 w-px bg-white/15 sm:block" aria-hidden="true" />
-            <span className="hidden items-center gap-2 text-sm font-medium text-[#b9c7e6] sm:flex">
-              <Activity className="size-4 text-brand-300" aria-hidden="true" />
-              Painel de agentes
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="max-w-52 truncate text-sm font-semibold text-white">{sessao.cliente.nome}</p>
-              <p className="max-w-52 truncate text-xs text-[#8390ac]">{sessao.cliente.email}</p>
-            </div>
-            <span className="grid size-9 place-items-center rounded-full bg-brand-700 text-xs font-bold text-white ring-1 ring-white/15">
-              {obterIniciais(sessao.cliente.nome)}
-            </span>
-            <button
-              className="grid size-9 place-items-center rounded-xl text-[#8390ac] transition hover:bg-white/10 hover:text-white"
-              type="button"
-              onClick={sair}
-              aria-label="Sair da conta"
-              title="Sair"
-            >
-              <LogOut className="size-[1.1rem]" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-[82rem] px-5 py-8 sm:px-8 sm:py-11">
-        <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Visão operacional</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
-              Monitoramento de agentes
-            </h1>
-            <p className="mt-3 max-w-2xl leading-7 text-muted">
-              Acompanhe a cota compartilhada, o consumo individual e o histórico de cada agente.
-            </p>
-          </div>
-          <button className="button-primary h-11 shrink-0 self-start sm:self-auto" type="button" onClick={() => setNovoAgenteAberto(true)}>
-            <Plus className="size-4" aria-hidden="true" />
+    <AppShell
+      titulo="Painel de agentes"
+      cliente={sessao.cliente}
+      aoSair={sair}
+      acoes={
+        <>
+          <a className="pill hidden sm:inline-flex" href="https://rotik.io/" target="_blank" rel="noopener noreferrer">
+            <BookOpen className="size-3.5" aria-hidden="true" />
+            Guia de uso
+          </a>
+          <button
+            className="pill"
+            type="button"
+            onClick={() => void consulta.refetch()}
+            disabled={consulta.isFetching}
+          >
+            <RefreshCw
+              className={`size-3.5 ${consulta.isFetching ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
+            <span className="hidden sm:inline">Atualizar</span>
+            <span className="sr-only">Atualizar dados do painel</span>
+          </button>
+          <button className="button-primary h-9 text-xs" type="button" onClick={() => setNovoAgenteAberto(true)}>
+            <Plus className="size-3.5" aria-hidden="true" />
             Novo agente
           </button>
-        </div>
-
+        </>
+      }
+    >
+      {/* pb no mobile abre espaço para o rail, que vira barra inferior fixa. */}
+      <div className="mx-auto max-w-[80rem] pb-20 sm:pb-0" id="conteudo">
         {consulta.isPending ? (
           <DashboardSkeleton />
         ) : consulta.isError ? (
@@ -130,31 +135,55 @@ export function DashboardPage() {
           />
         ) : (
           <>
-            {agentes[0] && <QuotaOverview agente={agentes[0]} />}
+            {/* Bento: métricas ocupam a largura, utilização ancora a direita.
+                A cota fica na coluna que o olho alcança depois do resumo, e
+                permanece visível enquanto a lista rola. */}
+            <div className="grid gap-4 lg:grid-cols-[1.65fr_1fr]">
+              <MetricTiles
+                ativos={resumo.ativos}
+                pausados={resumo.pausados}
+                bloqueados={resumo.bloqueados}
+                execucoesMes={resumo.usado}
+              />
+              <UtilizacaoCard
+                usado={resumo.usado}
+                limite={resumo.limite}
+                percentual={resumo.percentual}
+                totalAgentes={resumo.total}
+                agentesAtivos={resumo.ativos}
+                planoNome={resumo.plano}
+              />
+            </div>
 
-            <section className={agentes.length > 0 ? 'mt-9' : 'mt-2'} aria-labelledby="titulo-agentes">
-              <div className="mb-4">
-                <h2 className="text-xl font-semibold tracking-[-0.025em] text-ink" id="titulo-agentes">Agentes cadastrados</h2>
-                <p className="mt-1 text-sm text-muted">
-                  {agentes.length === 1 ? '1 agente nesta conta' : `${agentes.length} agentes nesta conta`}
-                </p>
+            <section className="panel mt-4 p-5" aria-labelledby="titulo-agentes">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-hi" id="titulo-agentes">
+                    Agentes
+                  </h2>
+                  <p className="mt-0.5 text-xs text-lo">
+                    {resumo.total === 1 ? '1 agente nesta conta' : `${resumo.total} agentes nesta conta`}
+                  </p>
+                </div>
               </div>
+
               <AgentList
                 agentes={agentes}
                 simulandoId={simulacao.isPending ? simulacao.variables.id : null}
-                aoAbrirHistorico={setAgenteHistorico}
-                aoSimular={(agente) => simulacao.mutate(agente)}
+                aoAbrirHistorico={abrirHistorico}
+                aoSimular={simular}
                 aoNovoAgente={() => setNovoAgenteAberto(true)}
               />
             </section>
           </>
         )}
-      </main>
+      </div>
+
       <NewAgentDialog aberto={novoAgenteAberto} aoFechar={() => setNovoAgenteAberto(false)} />
       <HistoryDialog agente={agenteHistorico} aoFechar={() => setAgenteHistorico(null)} />
       <LimitDialog detalhes={detalhesLimite} aoFechar={() => setDetalhesLimite(null)} />
       <StatusToast aviso={aviso} aoFechar={fecharAviso} />
-    </div>
+    </AppShell>
   )
 }
 
