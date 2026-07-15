@@ -28,11 +28,25 @@ function obterMotivo(agente: Agente): MotivoBloqueio {
   return null
 }
 
+/**
+ * A borda INTEIRA carrega o estado, não uma faixa fina numa aresta.
+ *
+ * Com a faixa, o sinal ficava preso na borda esquerda: numa lista larga o olho
+ * varre os nomes à esquerda e as ações à direita, e a cor no canto era pequena
+ * demais para ser lida na periferia. A borda completa envolve a linha, então o
+ * estado é percebido antes mesmo de ler o texto.
+ *
+ * O fundo recebe um véu da mesma cor. Sem ele, a borda flutuaria sobre um card
+ * neutro e leria como contorno decorativo em vez de estado da linha.
+ *
+ * Isso NÃO substitui o selo: cor sozinha não pode carregar significado
+ * (WCAG 1.4.1). A borda é reforço redundante para leitura rápida.
+ */
 const ESTILO_POR_MOTIVO = {
-  cota: { faixa: 'bg-danger', mono: 'bg-danger/12 text-danger', selo: 'bg-danger/15 text-danger' },
-  pausado: { faixa: 'bg-warn', mono: 'bg-warn/12 text-warn', selo: 'bg-warn/15 text-warn' },
-  arquivado: { faixa: 'bg-warn', mono: 'bg-warn/12 text-warn', selo: 'bg-warn/15 text-warn' },
-  ativo: { faixa: 'bg-ok/60', mono: 'bg-accent/12 text-accent', selo: 'bg-ok/15 text-ok' },
+  cota: { borda: 'border-danger/60 bg-danger/[0.06]', mono: 'bg-danger/15 text-danger', selo: 'bg-danger/15 text-danger' },
+  pausado: { borda: 'border-warn/60 bg-warn/[0.06]', mono: 'bg-warn/15 text-warn', selo: 'bg-warn/15 text-warn' },
+  arquivado: { borda: 'border-warn/60 bg-warn/[0.06]', mono: 'bg-warn/15 text-warn', selo: 'bg-warn/15 text-warn' },
+  ativo: { borda: 'border-ok/50 bg-ok/[0.04]', mono: 'bg-accent/15 text-accent', selo: 'bg-ok/15 text-ok' },
 } as const
 
 function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimular }: AgentRowProps) {
@@ -43,18 +57,14 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
 
   return (
     <motion.li
-      className="panel-tile group relative overflow-hidden p-4 transition-colors duration-200 hover:border-brand-700/40"
+      className={`panel-tile group relative overflow-hidden p-4 transition-colors duration-200 ${estilo.borda}`}
       initial={reduzirMovimento ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       // Escalonado, mas com teto: em uma lista longa, atraso proporcional faria
       // o último item aparecer segundos depois.
       transition={{ delay: Math.min(indice * 0.05, 0.3), duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
-      {/* Faixa de estado. Redundante com o selo de propósito: cor sozinha não
-          pode carregar significado (WCAG 1.4.1). */}
-      <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-0.5 ${estilo.faixa}`} />
-
-      <div className="flex flex-col gap-4 pl-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           {/* Monograma. Dá identidade visual a cada agente e é o âncora do olho
               ao varrer a lista, no lugar do ícone genérico repetido em todas as

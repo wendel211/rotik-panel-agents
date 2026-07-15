@@ -693,9 +693,13 @@ npm install
 npm run dev          # http://localhost:3333
 ```
 
-Credenciais de demo do seed: `cs@acme.dev` / `senha123` (plano Starter, 82/100) e `cs@globex.dev` /
-`senha123` (plano Growth). Os dois existem justamente para dar para testar o isolamento entre
-clientes.
+Credenciais de demo do seed: `cs@acme.dev` / `senha123` (plano Growth, abre em 82/100) e
+`cs@globex.dev` / `senha123` (plano Scale, 140/1000). Os dois existem para testar o isolamento entre
+clientes, e os consumos são propositalmente diferentes: uma conta em zona de alerta e uma folgada.
+
+> O seed só roda em volume vazio. Se ele mudar, recrie o banco com
+> `docker compose down -v && docker compose up -d` **e faça login de novo**: o `down -v` recria os
+> UUIDs, e um token antigo aponta para um cliente que não existe mais.
 
 ```bash
 # Fluxo completo
@@ -794,6 +798,95 @@ primeiro agente. Mutações mostram progresso no próprio botão para evitar dup
 - `prefers-reduced-motion` desativa animações para quem solicita movimento reduzido.
 - `AgentRow` é memoizado. Dados do servidor usam cache e invalidação pontual, e a paginação limita o
   histórico a 20 itens por request.
+
+## Decisões de design
+
+O produto da Rotik é escuro, e o painel operacional é uma **tela de vigília**: o CS deixa aberta o dia
+inteiro. Isso decidiu quase tudo abaixo.
+
+### Rail em vez de header
+
+Um header cheio gasta a faixa horizontal mais valiosa da tela, onde o olho entra, com identidade e
+conta, que é justamente o que o operador menos consulta. O rail move navegação e identidade para o
+eixo vertical, que sobra, e devolve o topo para o que importa: onde estou e o que posso fazer aqui.
+No mobile ele vira barra inferior, porque navegação lateral em tela estreita rouba largura que o
+conteúdo não tem para dar.
+
+Sair vive dentro do menu do avatar, não como botão solto: é ação rara e destrutiva de sessão, então
+não merece alvo permanente ao lado das ações do dia a dia, onde é clicada por engano.
+
+### Não existe barra de progresso por agente
+
+Essa é a decisão de UI mais importante, e ela vem direto da [suposição central](#1-o-limite-é-do-cliente-ou-de-cada-agente):
+a cota é do **cliente**. Uma barra por agente repetiria o mesmo percentual em todas as linhas e leria
+como bug. A cota compartilhada tem **uma** barra, em destaque, e a atribuição por agente aparece em
+número absoluto na lista, que é o que responde "qual agente está queimando isso".
+
+O card diz em texto que a cota é compartilhada e que o bloqueio derruba todos os agentes juntos. Sem
+isso, o operador concluiria que só o agente que está olhando parou.
+
+### Estado na borda inteira, nunca só na cor
+
+Cada linha de agente é envolvida por uma borda da cor do estado: verde ativo, amarelo pausado,
+vermelho bloqueado. Antes era uma faixa fina na aresta esquerda, e o sinal ficava pequeno demais para
+ser lido na periferia enquanto o olho varre nomes à esquerda e ações à direita.
+
+A borda é **reforço redundante**, não o portador do significado: o selo textual continua lá, porque
+cor sozinha não pode carregar informação ([WCAG 1.4.1](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color)).
+
+### `bloqueado` tem duas causas, e a UI separa
+
+A API devolve `bloqueado: true` quando a cota do cliente esgotou **ou** quando o agente não está
+`ativo`. Tratar os dois como o mesmo estado mentiria: um exige decisão comercial (upgrade de plano),
+o outro é um agente desligado de propósito. A UI distingue em rótulo e cor.
+
+### Tema escuro por padrão, claro por escolha
+
+O escuro vive no `@theme` e o claro é um override em `:root[data-theme='light']`, então sem atributo
+a página **nasce escura** e não há flash no primeiro paint (um script inline no `<head>` aplica a
+preferência salva antes do React montar).
+
+De propósito **não** seguimos `prefers-color-scheme`: o painel da Rotik é escuro, e herdar o tema do
+sistema jogaria a maioria numa versão que não é a identidade do produto.
+
+<details>
+<summary>Duas armadilhas que isso escondia</summary>
+
+**`@apply` de utilitário de cor não sobrevive ao tema.** Ele resolve o token para o valor literal em
+tempo de build, e o CSS sai com `background-color: #16223a` em vez de `var(--color-panel-2)`. O
+override do tema não tem o que sobrescrever. Quebrava de forma assimétrica e silenciosa: uns
+componentes viravam, outros não. As cores dependentes de tema usam `var()` explícito.
+
+**`--color-accent` existe para não quebrar o login.** O painel esquerdo do login é sempre escuro e usa
+`brand-300`; sobrescrever aquele token no tema claro apagaria o texto dele. O accent flipa, o brand
+não.
+</details>
+
+### Cor semântica escolhida por matiz e contraste
+
+Pausado é **amarelo** (48deg no escuro, 46deg no claro) e bloqueado é **vermelho** (0deg nos dois).
+Antes eram âmbar e rose: âmbar puxa laranja e chegava perto do vermelho, justo o estado vizinho que
+não pode ser confundido, e rose puxa rosa e não lia como alarme. Os quatro passam 4.5:1.
+
+O amarelo do tema claro é profundo, quase mostarda, e isso é física da cor, não escolha: amarelo é
+intrinsecamente luminoso, e o mais vivo que passa AA sobre branco já puxa oliva.
+
+### Tipografia
+
+**Inter** para UI e **JetBrains Mono** para números, self-hosted via npm em vez de Google Fonts: sem
+request a terceiro no caminho crítico, funciona offline e não vaza IP do usuário.
+
+Mono nos números não é enfeite. Este painel é sobre **contagem**, e dígito de largura fixa faz as
+colunas alinharem e o valor parar de dançar ao atualizar. Pelo mesmo motivo `tnum` fica ligado no
+Inter, junto de `cv11` e `ss01`, que melhoram a legibilidade em corpo pequeno.
+
+### Movimento com orçamento
+
+Toda animação de atenção é **finita** (3 e 4 repetições, não `infinite`). Numa tela que fica aberta o
+dia todo, animação infinita manteria o compositor acordado para sempre queimando GPU e bateria, e
+depois dos primeiros segundos já não chama atenção: vira ruído. As barras animam `transform`, não
+`width`, para a transição ficar no compositor.
+
 
 ## Rodando o frontend
 

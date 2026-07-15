@@ -99,14 +99,14 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
 
   return (
     <Dialog aberto={aberto} aoFechar={aoFechar} ariaLabelledby="titulo-novo-agente">
-      <div className="flex items-start justify-between border-b border-line px-6 py-5 sm:px-7">
+      <div className="flex items-start justify-between border-b border-hairline px-6 py-5 sm:px-7">
         <div className="flex gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-700/10 text-accent">
             <Bot className="size-5" aria-hidden="true" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-ink" id="titulo-novo-agente">Cadastrar agente</h2>
-            <p className="mt-1 text-sm text-muted">O agente será criado como ativo nesta conta.</p>
+            <h2 className="text-lg font-semibold text-hi" id="titulo-novo-agente">Cadastrar agente</h2>
+            <p className="mt-1 text-sm text-lo">O agente será criado como ativo nesta conta.</p>
           </div>
         </div>
         <button className="icon-button size-9 shrink-0" type="button" onClick={aoFechar} aria-label="Fechar cadastro">
@@ -119,7 +119,7 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
           <div>
             <label className="mb-2 block text-sm font-medium text-[#444b66]" htmlFor="nome-agente">Nome do agente</label>
             <input
-              className="control-field h-11 px-3.5"
+              className="field-dark h-11 px-3.5"
               id="nome-agente"
               autoFocus
               value={nome}
@@ -130,17 +130,17 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
               aria-describedby={erros.nome ? 'erro-nome-agente' : undefined}
             />
             <div className="mt-1.5 flex justify-between gap-4 text-xs">
-              {erros.nome ? <p className="text-red-700" id="erro-nome-agente">{erros.nome}</p> : <span />}
-              <span className="text-slate-400">{nome.length}/120</span>
+              {erros.nome ? <p className="text-danger" id="erro-nome-agente">{erros.nome}</p> : <span />}
+              <span className="text-lo">{nome.length}/120</span>
             </div>
           </div>
 
           <div>
             <label className="mb-2 block text-sm font-medium text-[#444b66]" htmlFor="descricao-agente">
-              Descrição <span className="font-normal text-slate-400">(opcional)</span>
+              Descrição <span className="font-normal text-lo">(opcional)</span>
             </label>
             <textarea
-              className="control-field min-h-28 resize-y px-3.5 py-3"
+              className="field-dark min-h-28 resize-y px-3.5 py-3"
               id="descricao-agente"
               value={descricao}
               onChange={(evento) => setDescricao(evento.target.value)}
@@ -150,16 +150,16 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
               aria-describedby={erros.descricao ? 'erro-descricao-agente' : undefined}
             />
             <div className="mt-1.5 flex justify-between gap-4 text-xs">
-              {erros.descricao ? <p className="text-red-700" id="erro-descricao-agente">{erros.descricao}</p> : <span />}
-              <span className="text-slate-400">{descricao.length}/500</span>
+              {erros.descricao ? <p className="text-danger" id="erro-descricao-agente">{erros.descricao}</p> : <span />}
+              <span className="text-lo">{descricao.length}/500</span>
             </div>
           </div>
 
-          {erros.formulario && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{erros.formulario}</p>}
+          {erros.formulario && <p className="rounded-xl border border-danger/35 bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">{erros.formulario}</p>}
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-line bg-[#f8faff] px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
-          <button className="button-secondary h-10" type="button" onClick={aoFechar}>Cancelar</button>
+        <div className="flex flex-col-reverse gap-3 border-t border-hairline bg-[#f8faff] px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
+          <button className="btn-dark h-10" type="button" onClick={aoFechar}>Cancelar</button>
           <button className="button-primary h-10" type="submit" disabled={criacao.isPending}>
             {criacao.isPending && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
             {criacao.isPending ? 'Cadastrando...' : 'Cadastrar agente'}

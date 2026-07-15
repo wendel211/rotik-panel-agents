@@ -41,7 +41,7 @@ export function Dialog({ aberto, aoFechar, ariaLabelledby, children, className =
     <dialog
       ref={dialogRef}
       aria-labelledby={ariaLabelledby}
-      className={`m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-xl overflow-visible bg-transparent p-0 text-left text-ink backdrop:bg-brand-950/70 backdrop:backdrop-blur-[3px] ${className}`}
+      className={`m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-xl overflow-visible bg-transparent p-0 text-left text-hi backdrop:bg-brand-950/70 backdrop:backdrop-blur-[3px] ${className}`}
       onClose={fechar}
       onCancel={(evento) => {
         evento.preventDefault()
@@ -52,7 +52,7 @@ export function Dialog({ aberto, aoFechar, ariaLabelledby, children, className =
       }}
     >
       <motion.div
-        className="max-h-[calc(100svh-2rem)] overflow-y-auto rounded-[1.4rem] border border-white/70 bg-surface shadow-[0_28px_90px_-30px_rgba(6,16,43,.65)]"
+        className="max-h-[calc(100svh-2rem)] overflow-y-auto rounded-[1.4rem] border border-hairline bg-panel shadow-[0_28px_90px_-30px_rgba(6,16,43,.65)]"
         initial={reduzirMovimento ? false : { opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
