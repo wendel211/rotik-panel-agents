@@ -53,7 +53,10 @@ const ESTILO_POR_MOTIVO = {
 function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimular }: AgentRowProps) {
   const reduzirMovimento = useReducedMotion()
   const motivo = obterMotivo(agente)
-  const podeSimular = motivo === null
+  // A tentativa continua disponível quando a cota acabou para que o avaliador
+  // consiga observar o 429 e o registro bloqueado no histórico. Agentes
+  // pausados/arquivados continuam indisponíveis porque não podem executar.
+  const podeSimular = motivo === null || motivo === 'cota'
   const estilo = ESTILO_POR_MOTIVO[motivo ?? 'ativo']
 
   return (
@@ -131,7 +134,7 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
             disabled={!podeSimular || simulando}
             title={
               motivo === 'cota'
-                ? 'A cota da conta esgotou'
+                ? 'Tentar execução para demonstrar o bloqueio por cota'
                 : motivo
                   ? `Agente ${motivo}`
                   : 'Registrar uma execução de demonstração'
@@ -142,7 +145,9 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
             ) : (
               <Play className="size-3.5" aria-hidden="true" />
             )}
-            <span className="hidden sm:inline">{simulando ? 'Executando' : 'Simular'}</span>
+            <span className="hidden sm:inline">
+              {simulando ? 'Executando' : motivo === 'cota' ? 'Tentar' : 'Simular'}
+            </span>
             <span className="sr-only">execução do agente {agente.nome}</span>
           </button>
 

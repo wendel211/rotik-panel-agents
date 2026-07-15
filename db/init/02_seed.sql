@@ -1,17 +1,14 @@
 -- =====================================================================
---  Seed de DESENVOLVIMENTO | Rotik
+--  Seed de DEMONSTRAÇÃO | Rotik
 --
---  ⚠️  AVISO: este arquivo cria usuários com senha conhecida e existe
---      apenas para levantar o ambiente local e a demo. Ele é montado no
---      container via docker-compose e NUNCA deve rodar em produção.
---      Nenhuma credencial real vive aqui, ver README, seção DevOps.
+--  AVISO: este arquivo cria usuários com senha conhecida. Use somente em
+--  desenvolvimento ou na instância pública descartável do desafio; nunca em
+--  ambiente com dados reais de clientes. Ver README, seção DevOps.
 -- =====================================================================
 
 BEGIN;
 
--- Senha de todos os clientes de demo. Hash gerado em tempo de seed com
--- bcrypt (pgcrypto), não hardcoded, compatível com o `bcryptjs` do backend.
-\set senha_demo 'senha123'
+-- O hash é gerado no banco com bcrypt (pgcrypto), compatível com bcryptjs.
 
 -- ---------------------------------------------------------------------
 --  Planos
@@ -32,7 +29,7 @@ INSERT INTO clientes (nome, email, senha_hash, plano_id, execucoes_mes_atual)
 SELECT
   'Acme Atendimento',
   'cs@acme.dev',
-  crypt(:'senha_demo', gen_salt('bf', 10)),
+  crypt('senha123', gen_salt('bf', 10)),
   p.id,
   -- 82/100 = 82%: a conta abre em zona de alerta, que é o estado que o painel
   -- existe para mostrar. Abrir folgado esconderia a regra central do desafio.
@@ -43,7 +40,7 @@ INSERT INTO clientes (nome, email, senha_hash, plano_id, execucoes_mes_atual)
 SELECT
   'Globex Suporte',
   'cs@globex.dev',
-  crypt(:'senha_demo', gen_salt('bf', 10)),
+  crypt('senha123', gen_salt('bf', 10)),
   p.id,
   140                      -- 140/1000 = 14%: contraste com a Acme, conta folgada
 FROM planos p WHERE p.nome = 'Scale';

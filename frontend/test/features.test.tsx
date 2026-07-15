@@ -132,6 +132,31 @@ describe('dashboard integrado', () => {
     expect(await screen.findByText(/nenhum agente cadastrado/i)).toBeInTheDocument()
   })
 
+  it('explicita o refresh e preserva os dados quando a atualização falha', async () => {
+    const dados = { data: [agente()] }
+    let concluirAtualizacao!: (valor: typeof dados) => void
+    const atualizacaoPendente = new Promise<typeof dados>((resolve) => {
+      concluirAtualizacao = resolve
+    })
+
+    vi.mocked(api.listarAgentes).mockResolvedValueOnce(dados).mockReturnValueOnce(atualizacaoPendente)
+    renderizar(<DashboardPage />)
+
+    expect(await screen.findByText('Assistente Comercial')).toBeInTheDocument()
+    const atualizar = screen.getByRole('button', { name: /atualizar dados do painel/i })
+    await userEvent.click(atualizar)
+    expect(screen.getByRole('button', { name: /atualizando dados do painel/i })).toBeDisabled()
+
+    concluirAtualizacao(dados)
+    expect(await screen.findByRole('status')).toHaveTextContent(/dados do painel atualizados/i)
+    await userEvent.click(screen.getByRole('button', { name: /fechar aviso/i }))
+
+    vi.mocked(api.listarAgentes).mockRejectedValueOnce(new ApiError(503, 'INDISPONIVEL', 'Serviço indisponível.'))
+    await userEvent.click(screen.getByRole('button', { name: /atualizar dados do painel/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/dados anteriores foram mantidos/i)
+    expect(screen.getByText('Assistente Comercial')).toBeInTheDocument()
+  })
+
   it('abre limite no 429 e toast em falhas comuns', async () => {
     vi.mocked(api.listarAgentes).mockResolvedValue({ data: [agente()] })
     const simular = vi.spyOn(api, 'simularExecucao')

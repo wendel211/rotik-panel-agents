@@ -241,6 +241,7 @@ describe('API HTTP', () => {
     for (const cursor of [
       Buffer.from(JSON.stringify({ c: new Date().toISOString() })).toString('base64url'),
       Buffer.from(JSON.stringify({ c: 'data-invalida', i: conta.agenteId })).toString('base64url'),
+      Buffer.from(JSON.stringify({ c: new Date().toISOString(), i: 'nao-e-uuid' })).toString('base64url'),
     ]) {
       expect(
         (

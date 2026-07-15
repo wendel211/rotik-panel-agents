@@ -68,12 +68,12 @@ export function LoginPage() {
     // Cada coluna vira uma área de rolagem própria, e só rola se o conteúdo
     // realmente não couber (telas muito baixas), em vez de a página inteira
     // rolar por causa da ilustração da esquerda.
-    <main className="grid h-svh overflow-hidden bg-canvas lg:grid-cols-[minmax(34rem,1.08fr)_minmax(29rem,0.92fr)]">
+    <main className="grid h-svh overflow-hidden bg-canvas lg:grid-cols-2">
       <section className="relative hidden h-svh min-h-0 overflow-hidden bg-brand-950 px-10 py-6 text-white lg:flex lg:flex-col xl:px-14">
         <BrandLogo />
 
         <motion.div
-          className="my-auto min-h-0 w-full max-w-2xl py-4"
+          className="my-auto min-h-0 w-full max-w-[40rem] py-4"
           initial={reduzirMovimento ? false : { opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
@@ -94,25 +94,16 @@ export function LoginPage() {
 
           {imagemDisponivel && (
             <motion.figure
-              // w-fit: a moldura encolhe até a imagem em vez de esticar. Com
-              // uma caixa de largura fixa sobrava letterbox nas laterais (a
-              // caixa era mais larga que a proporção 2:1 do print), e a faixa
-              // aparecia dentro da borda arredondada. Deixando a figure seguir
-              // a imagem, a borda abraça o print e não sobra nada.
-              className="mt-5 hidden w-fit overflow-hidden rounded-xl border border-white/10 shadow-[0_30px_80px_-35px_rgba(41,93,255,.7)] lg:block"
+              // A moldura usa a proporção exata do arquivo. Assim ela pode
+              // responder à largura da coluna sem cortar, distorcer ou criar
+              // letterbox em volta da ilustração.
+              className="mt-5 hidden aspect-[2048/1028] w-full overflow-hidden rounded-xl border border-white/10 shadow-[0_30px_80px_-35px_rgba(41,93,255,.7)] lg:block"
               initial={reduzirMovimento ? false : { opacity: 0, scale: 0.985 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.16, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             >
               <img
-                // A imagem é dimensionada pela ALTURA (max-h em vh) e a largura
-                // segue a proporção. Isso a mantém inteira, nunca cortada, e faz
-                // dela a peça que cede espaço quando a viewport encolhe, sem
-                // nunca empurrar rolagem.
-                //
-                // max-w-full protege o caso inverso: viewport alta e estreita,
-                // onde a largura proporcional estouraria a coluna.
-                className="block h-auto max-h-[40vh] w-auto max-w-full"
+                className="block size-full object-contain"
                 src="https://rotik.io/wp-content/uploads/2026/02/ilu-svg-hero-2x-2048x1028-1.webp"
                 alt=""
                 onError={() => setImagemDisponivel(false)}
@@ -127,14 +118,14 @@ export function LoginPage() {
         </div>
       </section>
 
-      <section className="flex h-svh min-h-0 flex-col overflow-y-auto bg-surface">
+      <section className="flex h-svh min-h-0 flex-col overflow-y-auto border-line bg-surface lg:border-l">
         <div className="flex h-14 shrink-0 items-center bg-brand-950 px-6 lg:hidden">
           <BrandLogo />
         </div>
 
         <div className="flex flex-1 items-center justify-center px-5 py-6 sm:px-10 lg:px-12">
           <motion.div
-            className="w-full max-w-[28rem]"
+            className="w-full max-w-[30rem]"
             initial={reduzirMovimento ? false : { opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.06, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}

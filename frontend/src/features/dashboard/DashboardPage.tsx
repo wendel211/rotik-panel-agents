@@ -87,6 +87,22 @@ export function DashboardPage() {
   const abrirHistorico = useCallback((agente: Agente) => setAgenteHistorico(agente), [])
   const simular = useCallback((agente: Agente) => simulacao.mutate(agente), [simulacao])
 
+  async function atualizarPainel() {
+    setAviso(null)
+    const resultado = await consulta.refetch()
+
+    if (resultado.isSuccess) {
+      setAviso({ tipo: 'sucesso', mensagem: 'Dados do painel atualizados.' })
+      return
+    }
+
+    const mensagem = resultado.error instanceof ApiError ? resultado.error.message : 'A API não respondeu.'
+    setAviso({
+      tipo: 'erro',
+      mensagem: `Não foi possível atualizar: ${mensagem} Os dados anteriores foram mantidos.`,
+    })
+  }
+
   if (!sessao) return null
 
   return (
@@ -103,15 +119,21 @@ export function DashboardPage() {
           <button
             className="pill"
             type="button"
-            onClick={() => void consulta.refetch()}
+            onClick={() => void atualizarPainel()}
             disabled={consulta.isFetching}
+            aria-busy={consulta.isFetching}
+            title={consulta.isFetching ? 'Atualizando dados do painel' : 'Buscar dados mais recentes'}
           >
             <RefreshCw
               className={`size-3.5 ${consulta.isFetching ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
-            <span className="hidden sm:inline">Atualizar</span>
-            <span className="sr-only">Atualizar dados do painel</span>
+            <span className="hidden sm:inline" aria-live="polite">
+              {consulta.isFetching ? 'Atualizando...' : 'Atualizar'}
+            </span>
+            <span className="sr-only sm:hidden" aria-live="polite">
+              {consulta.isFetching ? 'Atualizando dados do painel' : 'Atualizar dados do painel'}
+            </span>
           </button>
           <button className="button-primary h-9 text-xs" type="button" onClick={() => setNovoAgenteAberto(true)}>
             <Plus className="size-3.5" aria-hidden="true" />
@@ -124,7 +146,7 @@ export function DashboardPage() {
       <div className="mx-auto max-w-[80rem] pb-20 sm:pb-0" id="conteudo">
         {consulta.isPending ? (
           <DashboardSkeleton />
-        ) : consulta.isError ? (
+        ) : consulta.isError && !consulta.data ? (
           <ErrorState
             mensagem={
               consulta.error instanceof ApiError

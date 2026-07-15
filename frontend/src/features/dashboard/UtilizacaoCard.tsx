@@ -31,8 +31,9 @@ export function UtilizacaoCard({
   agentesAtivos,
   planoNome,
 }: UtilizacaoCardProps) {
+  const possuiCota = limite > 0
   const emRisco = percentual >= LIMIAR_ALERTA
-  const esgotada = usado >= limite
+  const esgotada = possuiCota && usado >= limite
 
   return (
     <section className="panel p-5" aria-labelledby="titulo-utilizacao">
@@ -67,7 +68,9 @@ export function UtilizacaoCard({
       {/* A cota é compartilhada e isso não é óbvio. Dizer em texto evita que o
           operador conclua que só o agente que ele está olhando parou. */}
       <p className="mt-5 border-t border-hairline pt-4 text-xs leading-5 text-lo">
-        {esgotada ? (
+        {!possuiCota ? (
+          <>O consumo será exibido após cadastrar o primeiro agente.</>
+        ) : esgotada ? (
           <span className="flex items-start gap-2 text-danger">
             <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
             <span>
