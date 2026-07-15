@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "db:schema": "node scripts/database.mjs schema",
-    "db:seed:demo": "node scripts/database.mjs seed-demo"
+    "db:seed:demo": "node scripts/database.mjs seed-demo",
+    "db:deploy": "node scripts/database.mjs deploy"
   },
   "engines": {
     "node": ">=20"
