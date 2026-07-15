@@ -36,24 +36,18 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
 
   return (
     <motion.li
-      className="grid gap-7 border-b border-slate-200 py-7 first:border-t lg:grid-cols-[minmax(0,1fr)_minmax(25rem,0.72fr)] lg:items-center"
-      initial={reduzirMovimento ? false : { opacity: 0, y: 12 }}
+      className="grid gap-5 border-b border-line px-6 py-6 last:border-b-0 hover:bg-[#fbfcff] lg:grid-cols-[minmax(0,1.45fr)_minmax(11rem,.65fr)_9rem_minmax(15rem,.75fr)] lg:items-center lg:gap-6 lg:px-7"
+      initial={reduzirMovimento ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(indice * 0.055, 0.22), duration: 0.35 }}
+      transition={{ delay: Math.min(indice * 0.05, 0.2), duration: 0.32 }}
     >
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-3">
-          <h3 className="truncate text-lg font-semibold tracking-[-0.02em] text-slate-950">{agente.nome}</h3>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${status.classe}`}>
-            <status.Icone className="size-3.5" aria-hidden="true" />
-            {status.rotulo}
-          </span>
-        </div>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <h3 className="truncate text-base font-semibold tracking-[-0.015em] text-ink">{agente.nome}</h3>
+        <p className="mt-1.5 line-clamp-2 text-sm leading-6 text-muted">
           {agente.descricao || 'Sem descrição cadastrada.'}
         </p>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500">
-          <span>{formatarNumero(agente.totalExecucoes)} execuções realizadas</span>
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-subtle">
+          <span>{formatarNumero(agente.totalExecucoes)} execuções no total</span>
           <span className="flex items-center gap-1.5">
             <CalendarClock className="size-3.5" aria-hidden="true" />
             {agente.ultimaExecucaoEm
@@ -64,43 +58,41 @@ function AgentRowComponent({ agente, indice, simulando, aoAbrirHistorico, aoSimu
       </div>
 
       <div>
-        <div className="rounded-2xl bg-slate-50 px-5 py-4">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500">Consumo deste agente</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-              {formatarNumero(agente.consumo.execucoesMesAgente)}{' '}
-              <span className="ml-1.5 text-sm font-normal text-slate-500">execuções no mês</span>
-            </p>
-          </div>
-          <p className="shrink-0 text-xs font-medium text-slate-500">
-            de {formatarNumero(agente.consumo.limiteMensal)}
-          </p>
+        <p className="text-sm font-semibold text-ink">
+          {formatarNumero(agente.consumo.execucoesMesAgente)}
+          <span className="ml-1.5 font-normal text-muted">execuções</span>
+        </p>
+        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-line" aria-hidden="true">
+          <div className="h-full rounded-full bg-brand-700" style={{ width: `${percentualAgente}%` }} />
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
-          <div className="h-full rounded-full bg-blue-500" style={{ width: `${percentualAgente}%` }} />
-        </div>
+        <p className="mt-1.5 text-xs text-subtle">{percentualAgente.toFixed(1).replace('.', ',')}% do limite da conta</p>
         <p className="sr-only">
           Este agente consumiu {formatarNumero(agente.consumo.execucoesMesAgente)} das {formatarNumero(agente.consumo.limiteMensal)} execuções disponíveis no pool do cliente.
         </p>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-          <button className="flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950" type="button" onClick={() => aoAbrirHistorico(agente)}>
-            <History className="size-4" aria-hidden="true" />
-            Ver histórico
-          </button>
-          <button
-            className="flex h-9 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-semibold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-            type="button"
-            onClick={() => aoSimular(agente)}
-            disabled={agente.status !== 'ativo' || simulando}
-            title={agente.status !== 'ativo' ? 'Agentes inativos não aceitam execuções' : 'Recurso de demonstração'}
-          >
-            {simulando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <FlaskConical className="size-4" aria-hidden="true" />}
-            {simulando ? 'Simulando...' : agente.bloqueado ? 'Tentar execução' : 'Simular execução'}
-            {!simulando && <span className="rounded bg-blue-200/70 px-1.5 py-0.5 text-[0.62rem] uppercase tracking-wide">Demo</span>}
-          </button>
-        </div>
+      </div>
+
+      <div>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${status.classe}`}>
+          <status.Icone className="size-3.5" aria-hidden="true" />
+          {status.rotulo}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <button className="button-secondary h-9 px-3" type="button" onClick={() => aoAbrirHistorico(agente)}>
+          <History className="size-4" aria-hidden="true" />
+          Histórico
+        </button>
+        <button
+          className="button-primary h-9 px-3"
+          type="button"
+          onClick={() => aoSimular(agente)}
+          disabled={agente.status !== 'ativo' || simulando}
+          title={agente.status !== 'ativo' ? 'Agentes inativos não aceitam execuções' : 'Recurso de demonstração'}
+        >
+          {simulando ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <FlaskConical className="size-4" aria-hidden="true" />}
+          {simulando ? 'Simulando...' : agente.bloqueado ? 'Tentar execução' : 'Simular'}
+        </button>
       </div>
     </motion.li>
   )

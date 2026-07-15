@@ -16,36 +16,33 @@ export function QuotaOverview({ agente }: QuotaOverviewProps) {
   const emAlerta = percentual >= 80 && !esgotada
 
   const Icone = esgotada ? ShieldAlert : emAlerta ? AlertTriangle : CheckCircle2
-  const corProgresso = esgotada ? 'bg-red-500' : emAlerta ? 'bg-amber-400' : 'bg-blue-400'
+  const corProgresso = esgotada ? 'bg-red-400' : emAlerta ? 'bg-amber-300' : 'bg-brand-600'
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-[#102e72] px-6 py-7 text-white shadow-[0_24px_70px_-42px_rgba(13,44,114,.9)] sm:px-9 sm:py-8">
-      <div className="pointer-events-none absolute -right-24 -top-36 size-80 rounded-full border border-white/10" />
-      <div className="pointer-events-none absolute -right-12 -top-20 size-56 rounded-full border border-white/10" />
-
-      <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0 flex-1">
+    <section className="overflow-hidden rounded-[1.4rem] border border-white/8 bg-brand-950 text-white shadow-[var(--shadow-panel)]" aria-labelledby="titulo-cota">
+      <div className="grid lg:grid-cols-[minmax(0,1.55fr)_minmax(20rem,.75fr)]">
+        <div className="min-w-0 px-6 py-7 sm:px-8 sm:py-8 lg:px-10">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="flex items-center gap-2 text-sm font-medium text-blue-100">
-              <Gauge className="size-4" aria-hidden="true" />
-              Cota mensal do cliente
+            <span className="flex items-center gap-2 text-sm font-medium text-[#b9c7e6]">
+              <Gauge className="size-4 text-brand-300" aria-hidden="true" />
+              <span id="titulo-cota">Cota mensal da conta</span>
             </span>
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-blue-50">
+            <span className="rounded-full bg-white/8 px-2.5 py-1 text-xs font-semibold text-brand-100 ring-1 ring-inset ring-white/10">
               Plano {plano.nome}
             </span>
           </div>
 
-          <div className="mt-6 flex items-end gap-3">
-            <strong className="text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
+          <div className="mt-7 flex flex-wrap items-end gap-x-3 gap-y-1">
+            <strong className="text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">
               {formatarNumero(consumo.execucoesMesCliente)}
             </strong>
-            <span className="pb-1 text-lg text-blue-200">
+            <span className="pb-1 text-base text-[#8390ac] sm:text-lg">
               de {formatarNumero(consumo.limiteMensal)} execuções
             </span>
           </div>
 
           <div
-            className="mt-6 h-2.5 overflow-hidden rounded-full bg-white/15"
+            className="mt-7 h-2 overflow-hidden rounded-full bg-white/12"
             role="progressbar"
             aria-label="Consumo da cota mensal do cliente"
             aria-valuemin={0}
@@ -63,25 +60,32 @@ export function QuotaOverview({ agente }: QuotaOverviewProps) {
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
             <span className="font-semibold text-white">{consumo.percentualUsoCliente}% utilizado</span>
-            <span className="text-blue-200">{formatarMesAtual()}</span>
+            <span className="text-[#8390ac]">{formatarMesAtual()}</span>
           </div>
         </div>
 
-        <div className="flex max-w-sm gap-3 border-t border-white/15 pt-6 lg:border-l lg:border-t-0 lg:pb-1 lg:pl-8 lg:pt-0">
-          <Icone className={`mt-0.5 size-5 shrink-0 ${esgotada ? 'text-red-300' : emAlerta ? 'text-amber-300' : 'text-blue-300'}`} aria-hidden="true" />
-          <div>
-            <p className="font-semibold">
-              {esgotada
-                ? 'Cota esgotada'
-                : emAlerta
-                  ? 'Conta próxima do limite'
-                  : `${formatarNumero(consumo.restante)} execuções disponíveis`}
+        <div className="grid border-t border-white/10 bg-brand-900/70 sm:grid-cols-2 lg:grid-cols-1 lg:border-l lg:border-t-0">
+          <div className="px-6 py-5 sm:px-7 lg:flex lg:flex-col lg:justify-center lg:px-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#8390ac]">Disponível</p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">
+              {formatarNumero(consumo.restante)}
+              <span className="ml-2 text-sm font-normal text-[#8390ac]">execuções</span>
             </p>
-            <p className="mt-1 text-sm leading-6 text-blue-100/75">
-              {esgotada
-                ? 'Todos os agentes ativos estão bloqueados até a próxima competência.'
-                : 'Este pool é compartilhado por todos os agentes desta conta.'}
-            </p>
+          </div>
+          <div className="border-t border-white/10 px-6 py-5 sm:border-l sm:border-t-0 sm:px-7 lg:flex lg:items-center lg:border-l-0 lg:border-t lg:px-8">
+            <div className="flex gap-3">
+              <Icone className={`mt-0.5 size-5 shrink-0 ${esgotada ? 'text-red-300' : emAlerta ? 'text-amber-300' : 'text-brand-300'}`} aria-hidden="true" />
+              <div>
+                <p className="font-semibold">
+                  {esgotada ? 'Cota esgotada' : emAlerta ? 'Próxima do limite' : 'Operação saudável'}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[#a8b6d3]">
+                  {esgotada
+                    ? 'Todos os agentes ativos estão bloqueados até a próxima competência.'
+                    : 'O saldo é compartilhado por todos os agentes desta conta.'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

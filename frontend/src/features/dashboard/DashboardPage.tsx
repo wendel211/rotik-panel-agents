@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, LogOut, Plus } from 'lucide-react'
+import { Activity, LogOut, Plus } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
+import { BrandLogo } from '../../components/BrandLogo'
 import { ErrorState } from '../../components/ErrorState'
 import { StatusToast, type Aviso } from '../../components/StatusToast'
 import { ApiError, api } from '../../lib/api'
@@ -66,31 +67,28 @@ export function DashboardPage() {
   if (!sessao) return null
 
   return (
-    <div className="min-h-svh bg-[#f5f7fb]">
-      <header className="sticky top-0 z-20 border-b border-slate-200/90 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-[76rem] items-center justify-between px-5 sm:px-8">
+    <div className="min-h-svh bg-canvas">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-brand-950/95 text-white backdrop-blur-xl">
+        <div className="mx-auto flex h-[4.5rem] max-w-[82rem] items-center justify-between px-5 sm:px-8">
           <div className="flex items-center gap-5">
-            <div className="flex items-center gap-3">
-              <span className="grid size-8 place-items-center rounded-lg bg-[#0d2c72] text-xs font-black text-white">R</span>
-              <span className="font-bold tracking-[0.16em] text-[#0d2c72]">ROTIK</span>
-            </div>
-            <span className="hidden h-5 w-px bg-slate-200 sm:block" aria-hidden="true" />
-            <span className="hidden items-center gap-2 text-sm font-medium text-slate-600 sm:flex">
-              <Bot className="size-4 text-blue-600" aria-hidden="true" />
-              Monitoramento
+            <BrandLogo />
+            <span className="hidden h-6 w-px bg-white/15 sm:block" aria-hidden="true" />
+            <span className="hidden items-center gap-2 text-sm font-medium text-[#b9c7e6] sm:flex">
+              <Activity className="size-4 text-brand-300" aria-hidden="true" />
+              Painel de agentes
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden text-right sm:block">
-              <p className="max-w-52 truncate text-sm font-semibold text-slate-800">{sessao.cliente.nome}</p>
-              <p className="max-w-52 truncate text-xs text-slate-500">{sessao.cliente.email}</p>
+              <p className="max-w-52 truncate text-sm font-semibold text-white">{sessao.cliente.nome}</p>
+              <p className="max-w-52 truncate text-xs text-[#8390ac]">{sessao.cliente.email}</p>
             </div>
-            <span className="grid size-9 place-items-center rounded-full bg-blue-50 text-xs font-bold text-blue-800 ring-1 ring-blue-100">
+            <span className="grid size-9 place-items-center rounded-full bg-brand-700 text-xs font-bold text-white ring-1 ring-white/15">
               {obterIniciais(sessao.cliente.nome)}
             </span>
             <button
-              className="grid size-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+              className="grid size-9 place-items-center rounded-xl text-[#8390ac] transition hover:bg-white/10 hover:text-white"
               type="button"
               onClick={sair}
               aria-label="Sair da conta"
@@ -102,13 +100,21 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[76rem] px-5 py-9 sm:px-8 sm:py-12">
-        <div className="mb-8">
-          <p className="text-sm font-semibold text-blue-700">Visão da conta</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-4xl">Agentes de IA</h1>
-          <p className="mt-3 max-w-2xl leading-7 text-slate-500">
-            Acompanhe a cota compartilhada e identifique quais agentes concentram o consumo.
-          </p>
+      <main className="mx-auto max-w-[82rem] px-5 py-8 sm:px-8 sm:py-11">
+        <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Visão operacional</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-ink sm:text-4xl">
+              Monitoramento de agentes
+            </h1>
+            <p className="mt-3 max-w-2xl leading-7 text-muted">
+              Acompanhe a cota compartilhada, o consumo individual e o histórico de cada agente.
+            </p>
+          </div>
+          <button className="button-primary h-11 shrink-0 self-start sm:self-auto" type="button" onClick={() => setNovoAgenteAberto(true)}>
+            <Plus className="size-4" aria-hidden="true" />
+            Novo agente
+          </button>
         </div>
 
         {consulta.isPending ? (
@@ -126,19 +132,12 @@ export function DashboardPage() {
           <>
             {agentes[0] && <QuotaOverview agente={agentes[0]} />}
 
-            <section className={agentes.length > 0 ? 'mt-12' : 'mt-2'} aria-labelledby="titulo-agentes">
-              <div className="mb-6 flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-[-0.025em] text-slate-950" id="titulo-agentes">Agentes cadastrados</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {agentes.length === 1 ? '1 agente nesta conta' : `${agentes.length} agentes nesta conta`}
-                  </p>
-                </div>
-                <button className="flex h-10 shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700" type="button" onClick={() => setNovoAgenteAberto(true)}>
-                  <Plus className="size-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Novo agente</span>
-                  <span className="sm:hidden">Novo</span>
-                </button>
+            <section className={agentes.length > 0 ? 'mt-9' : 'mt-2'} aria-labelledby="titulo-agentes">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold tracking-[-0.025em] text-ink" id="titulo-agentes">Agentes cadastrados</h2>
+                <p className="mt-1 text-sm text-muted">
+                  {agentes.length === 1 ? '1 agente nesta conta' : `${agentes.length} agentes nesta conta`}
+                </p>
               </div>
               <AgentList
                 agentes={agentes}
