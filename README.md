@@ -718,6 +718,20 @@ os agentes ordenados abaixo dela e as ações de diagnóstico no contexto de cad
 azul da Rotik como único destaque de marca, reservando verde, amarelo e vermelho para significado de
 estado.
 
+## Design system e identidade visual
+
+O frontend parte da identidade pública da Rotik, sem copiar a estrutura do site institucional. A paleta
+foi transformada em tokens semânticos no Tailwind: azul-noite para navegação e superfícies de maior
+hierarquia, azul elétrico para ações, azul-claro para foco e apoio, além de canvas, superfície, texto e
+borda neutros. O logotipo oficial fica versionado como asset local e a tela de acesso usa a imagem pública
+do produto como contexto visual, mantendo o painel funcional mesmo quando essa imagem externa não carrega.
+
+Os controles compartilhados (`control-field`, `button-primary`, `button-secondary` e `icon-button`)
+concentram foco, estados desabilitados, contraste, raio e transição. Isso evita que formulários, diálogos e
+ações evoluam com estilos divergentes. O cabeçalho escuro ancora a marca, a cota é a única superfície de
+alto contraste e os agentes usam uma lista operacional com colunas, em vez de uma grade de cards sem
+hierarquia.
+
 ## Arquitetura de estado
 
 Há três naturezas de estado e cada uma fica no lugar com o ciclo de vida adequado:
