@@ -53,6 +53,12 @@
   --color-ok: #10b981;
   --color-warn: #facc15;
   --color-danger: #ff5a5a;
+  --color-ok-soft: #12362f;
+  --color-ok-border: #28604f;
+  --color-warn-soft: #383116;
+  --color-warn-border: #67591e;
+  --color-danger-soft: #3b2025;
+  --color-danger-border: #71363d;
 }
 
 /* ---------------------------------------------------------------------------
@@ -86,9 +92,15 @@
      oliva. O valor abaixo mantém a MATIZ do amarelo (46deg, dourado, longe do
      âmbar que puxava laranja e se aproximava do vermelho) e escurece só o
      necessário para ser lido. */
-  --color-ok: #047857;
-  --color-warn: #8a6a00;
-  --color-danger: #d92020;
+  --color-ok: #28705a;
+  --color-warn: #7b641f;
+  --color-danger: #b83d43;
+  --color-ok-soft: #edf7f2;
+  --color-ok-border: #b9d7c9;
+  --color-warn-soft: #fbf7e8;
+  --color-warn-border: #dccf9f;
+  --color-danger-soft: #fbefef;
+  --color-danger-border: #e5bfc2;
 
   --panel-glow: none;
   --panel-shadow: 0 1px 2px rgba(6, 16, 43, 0.05), 0 14px 34px -22px rgba(6, 16, 43, 0.22);

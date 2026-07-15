@@ -6,14 +6,14 @@ MVP que permite ver, por cliente, quais agentes de IA estão ativos, quanto cada
 mensal do plano contratado, e bloquear novas execuções quando o limite é atingido.
 
 **Stack:** Node.js + TypeScript (backend) · React + TypeScript (frontend) · PostgreSQL
-**Deploy:** _(link na Etapa 6)_
+**Deploy:** _publicação e escolha de provedor reservadas para o próximo passo_
 
 <details>
 <summary><b>Por que essa stack</b></summary>
 
 O desafio dá liberdade e cita Nuxt/Laravel como referência. Escolhi React + Node/TS, que também está
 na stack da Rotik, por dois motivos: é onde produzo com mais densidade no tempo sugerido, e manter
-TypeScript nas duas pontas permite compartilhar os tipos do contrato da API sem geração de código.
+TypeScript nas duas pontas deixa os contratos da API explícitos e alinhados entre backend e frontend.
 
 PostgreSQL, e não MongoDB, porque o problema central aqui é **cota transacional**. A regra de negócio
 depende de verificar um limite e incrementar um contador de forma atômica, que é o caso clássico de
@@ -32,8 +32,8 @@ por isso que o histórico de commits é granular.
 | **2** | **Backend REST API** | ✅ |
 | **3** | **Frontend (SPA)** | ✅ |
 | **4** | **Integração com a API real** | ✅ |
-| 5 | Qualidade, testes e debug | ⏳ |
-| 6 | DevOps (CI, deploy, env) | ⏳ |
+| **5** | **Qualidade, testes e debug** | ✅ |
+| 6 | DevOps (CI, deploy, env) | 🚧 Preparação concluída; publicação pendente |
 | 7 | Mentalidade de produto | ⏳ |
 
 **Convenção de commits:** [Conventional Commits 1.0.0](https://www.conventionalcommits.org/pt-br/v1.0.0/),
@@ -61,6 +61,17 @@ no formato `<tipo>(<escopo>): <descrição no imperativo>`.
   - [Erros e estados da interface](#erros-e-estados-da-interface)
   - [Acessibilidade, responsividade e performance](#acessibilidade-responsividade-e-performance)
   - [Rodando o frontend](#rodando-o-frontend)
+- [Etapa 5: Qualidade, testes e debug](#etapa-5-qualidade-testes-e-debug)
+  - [Estratégia e cobertura](#estratégia-e-cobertura)
+  - [Concorrência com Postgres real](#concorrência-com-postgres-real)
+  - [Executando os testes](#executando-os-testes)
+- [Etapa 6: DevOps e preparação para produção](#etapa-6-devops-e-preparação-para-produção)
+  - [Variáveis de ambiente e secrets](#variáveis-de-ambiente-e-secrets)
+  - [Execução local completa](#execução-local-completa)
+  - [Integração contínua](#integração-contínua)
+  - [Logs](#logs)
+  - [Monitoramento em produção](#monitoramento-em-produção)
+  - [Preparação para deploy](#preparação-para-deploy)
 
 ---
 
@@ -314,6 +325,8 @@ Fonte da verdade: [`db/init/01_schema.sql`](db/init/01_schema.sql)
 SQL comentado da regra central: [`db/queries/registrar_execucao.sql`](db/queries/registrar_execucao.sql)
 
 ## Diagrama ER
+
+Versão navegável e pública: [modelo ER no dbdiagram.io](https://dbdiagram.io/d/modeloER-6a56e578067336e1de76f9d3).
 
 ```mermaid
 erDiagram
@@ -683,15 +696,30 @@ consolidado no `GET /agents`, que é onde o CS precisa dele.
 ## Rodando localmente
 
 ```bash
-# 1. Banco (na raiz do projeto)
+# Execute a partir da raiz do repositório.
+cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+
+# 1. Banco
 docker compose up -d
 
 # 2. API
 cd backend
-cp .env.example .env
-npm install
+npm ci
 npm run dev          # http://localhost:3333
 ```
+
+No PowerShell, troque os três comandos `cp` por:
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env
+```
+
+O `DATABASE_URL` de `backend/.env` precisa usar o mesmo usuário, senha, banco e porta definidos no
+`.env` da raiz. Os valores versionados são exemplos exclusivos de desenvolvimento.
 
 Credenciais de demo do seed: `cs@acme.dev` / `senha123` (plano Growth, abre em 82/100) e
 `cs@globex.dev` / `senha123` (plano Scale, 140/1000). Os dois existem para testar o isolamento entre
@@ -707,8 +735,6 @@ TOKEN=$(curl -s -X POST localhost:3333/auth/login -H 'Content-Type: application/
 
 curl -s localhost:3333/agents -H "Authorization: Bearer $TOKEN" | jq
 ```
-
-> Instruções completas de execução, `.env.example` comentado e deploy entram na Etapa 6.
 
 ---
 
@@ -757,8 +783,7 @@ A decisão central do Discovery aparece diretamente na hierarquia visual:
 1. Existe **uma única barra principal**, alimentada por `execucoesMesCliente`, `limiteMensal` e
    `percentualUsoCliente`. Ela representa o pool que bloqueia a conta inteira.
 2. Cada linha de agente mostra `execucoesMesAgente`, a atribuição necessária para descobrir quem está
-   consumindo a cota. A barra menor usa `execucoesMesAgente / limiteMensal`, portanto varia por agente e
-   nunca repete o percentual global.
+   consumindo a cota, em número absoluto. Não existe barra por agente porque o limite pertence ao cliente.
 3. A indicação de bloqueio cruza dois campos. `bloqueado && status === 'ativo'` significa cota esgotada.
    `status === 'pausado'` e `status === 'arquivado'` recebem rótulos próprios e nunca são apresentados
    como bloqueio de plano.
@@ -786,7 +811,9 @@ O histórico usa `useInfiniteQuery` e devolve ao backend o cursor opaco. A inter
 inventado no cliente.
 
 Loading do dashboard e do histórico usa skeletons explícitos. A lista vazia orienta o cadastro do
-primeiro agente. Mutações mostram progresso no próprio botão para evitar duplo envio.
+primeiro agente. Mutações mostram progresso no próprio botão para evitar duplo envio. A atualização
+manual troca o rótulo para **Atualizando...**, anuncia o estado para tecnologias assistivas e confirma o
+resultado; uma falha de refetch mantém os dados anteriores visíveis em vez de desmontar o painel.
 
 ## Acessibilidade, responsividade e performance
 
@@ -868,8 +895,9 @@ Pausado é **amarelo** (48deg no escuro, 46deg no claro) e bloqueado é **vermel
 Antes eram âmbar e rose: âmbar puxa laranja e chegava perto do vermelho, justo o estado vizinho que
 não pode ser confundido, e rose puxa rosa e não lia como alarme. Os quatro passam 4.5:1.
 
-O amarelo do tema claro é profundo, quase mostarda, e isso é física da cor, não escolha: amarelo é
-intrinsecamente luminoso, e o mais vivo que passa AA sobre branco já puxa oliva.
+No tema claro, os cards permanecem neutros. Verde, amarelo e vermelho aparecem em bordas, monogramas e
+selos com fundos semânticos suaves; assim o estado continua reconhecível sem criar manchas saturadas por
+trás de nome, consumo e ações. Texto e ícones usam tons mais profundos para manter contraste AA.
 
 ### Tipografia
 
@@ -894,8 +922,7 @@ Com o banco e a API já iniciados conforme a Etapa 2:
 
 ```bash
 cd frontend
-cp .env.example .env
-npm install
+npm ci
 npm run dev          # http://localhost:5173
 ```
 
@@ -910,3 +937,220 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+---
+
+# Etapa 5: Qualidade, testes e debug
+
+## Estratégia e cobertura
+
+Os testes foram organizados pela fronteira que precisam provar, e não por uma meta artificial de linhas:
+
+- **Backend:** integração HTTP contra Postgres real para autenticação, isolamento entre tenants, cadastro,
+  validação, reset mensal preguiçoso, histórico keyset, bloqueio e auditoria; middlewares de fronteira têm
+  testes unitários para os caminhos que não dependem de I/O.
+- **Frontend:** comportamento observado pelo usuário com Vitest, Testing Library e JSDOM. A suíte cobre
+  login, sessão expirada, cliente HTTP, tema, formulários, diálogos, estados vazio/loading/erro, paginação,
+  simulação e feedback de limite.
+- **Quality gate:** statements, branches, functions e lines precisam ficar em **90% ou mais** nos dois
+  projetos. O comando termina com erro se qualquer uma das quatro métricas cair abaixo desse piso.
+
+Resultado local desta etapa:
+
+| Projeto | Testes | Statements | Branches | Functions | Lines |
+|---|---:|---:|---:|---:|---:|
+| Backend | 12 | 97,35% | 92,85% | 95,23% | 97,25% |
+| Frontend | 29 | 97,93% | 92,08% | 99,19% | 99,41% |
+
+Arquivos de bootstrap, declarações de tipo, componentes puramente estáticos e o logger são excluídos da
+instrumentação. Eles continuam cobertos por typecheck/build; a exclusão evita fingir valor com testes que
+apenas importariam wiring sem comportamento.
+
+## Concorrência com Postgres real
+
+O teste central não usa mock do repositório nem banco em memória. O setup cria um banco `rotik_test`
+isolado, aplica o schema real e dispara **112 requests HTTP concorrentes** para uma conta cujo limite é
+100. O invariante esperado e verificado é:
+
+- 100 respostas `201`, 100 execuções cobradas e contador consolidado exatamente em 100;
+- 12 respostas `429`, 12 tentativas `bloqueada` preservadas para auditoria;
+- nenhum incremento além da cota e nenhuma divergência entre contador e fatos.
+
+Esse cenário é o motivo de a Etapa 5 trazer parte da Etapa 6: sem um Postgres de verdade no CI, o risco
+financeiro mais importante do projeto seria testado apenas na máquina de quem desenvolveu.
+
+## Executando os testes
+
+O container `rotik-db` precisa estar ativo para a suíte do backend. O setup usa `rotik_test` e nunca limpa
+o banco de desenvolvimento `rotik`.
+
+```bash
+# na raiz
+docker compose up -d
+
+# backend: integração real + cobertura
+cd backend
+npm ci
+npm run test:coverage
+
+# frontend: comportamento + cobertura
+cd ../frontend
+npm ci
+npm run test:coverage
+```
+
+Para uma verificação equivalente ao CI, execute também `lint`, `typecheck` e `build` nos dois projetos.
+
+---
+
+# Etapa 6: DevOps e preparação para produção
+
+Tudo que independe de criar recursos em um provedor está preparado neste repositório. A escolha da
+plataforma, a criação do banco gerenciado e a publicação dos URLs serão feitas no passo seguinte, para
+não acoplar a arquitetura a um fornecedor antes dessa decisão.
+
+## Variáveis de ambiente e secrets
+
+Nenhuma credencial de runtime está escrita no código ou no manifesto do Compose. Arquivos `.env` são
+ignorados pelo Git; apenas modelos documentados entram no repositório. Em produção, valores sensíveis
+devem ser configurados no secret manager do provedor, nunca copiados do exemplo local.
+
+| Variável | Serviço | Sensível? | Função |
+|---|---|---:|---|
+| `DATABASE_URL` | Backend | **Sim** | Conexão completa com o PostgreSQL gerenciado. |
+| `DATABASE_SSL` | Backend | Não | Override de TLS (`true`/`false`); por padrão fica ativo em produção. |
+| `JWT_SECRET` | Backend | **Sim** | Assinatura dos tokens; mínimo de 32 caracteres e valor aleatório por ambiente. |
+| `JWT_EXPIRES_IN` | Backend | Não | Duração da sessão simplificada. |
+| `CORS_ORIGIN` | Backend | Não | Origens permitidas, separadas por vírgula. Deve conter o domínio real do frontend. |
+| `LOG_LEVEL` | Backend | Não | Verbosidade do Pino; `info` é o padrão recomendado em produção. |
+| `PORT` | Backend | Não | Porta HTTP; pode ser injetada pela plataforma. |
+| `VITE_API_URL` | Frontend | Não | URL pública da API, incorporada ao bundle durante o build. |
+| `POSTGRES_*` | Compose local | Sim, senha | Inicialização exclusiva do banco local. Não é usado no deploy gerenciado. |
+| `ALLOW_DEMO_SEED` | Operação de banco | Não | Trava explícita: precisa ser `true` para inserir as contas públicas de demonstração. |
+
+O backend valida todas as variáveis com Zod durante o boot e não sobe com configuração ausente ou
+malformada. O logger também remove `Authorization`, senha e hash de qualquer objeto registrado por
+engano. Como `VITE_API_URL` é variável de **build**, alterar a API exige novo build do frontend.
+
+## Execução local completa
+
+Pré-requisitos: Node.js 22+, Docker com Compose e portas 5432, 3333 e 5173 disponíveis.
+
+```bash
+# terminal 1, na raiz
+cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+docker compose up -d
+docker compose ps
+
+# terminal 2, na raiz
+cd backend
+npm ci
+npm run dev
+
+# terminal 3, na raiz
+cd frontend
+npm ci
+npm run dev
+```
+
+No Windows PowerShell use `Copy-Item`, como mostrado na Etapa 2. Não execute `npm --prefix backend`
+depois de entrar na pasta `backend`: isso procuraria `backend/backend/package.json`. Se a porta 3333 já
+estiver em uso, verifique o processo antes de iniciar outra instância da API.
+
+Validação rápida:
+
+```bash
+curl http://localhost:3333/health
+# esperado: status=ok e banco=ok
+```
+
+## Integração contínua
+
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em todo pull request e em qualquer
+push, com permissões somente de leitura e cancelamento de execuções obsoletas da mesma branch.
+
+O job de backend sobe PostgreSQL 16 como service container, espera o healthcheck e executa instalação
+reprodutível (`npm ci`), lint, typecheck, build e a suíte com o gate de 90%. O job de frontend executa
+os mesmos controles. Os relatórios LCOV dos dois projetos ficam anexados à
+execução do GitHub Actions para diagnóstico de regressões. Depois dos dois jobs passarem, um terceiro
+job constrói as imagens de produção da API e do frontend sem publicá-las; assim um Dockerfile quebrado
+também bloqueia o PR.
+
+## Logs
+
+O backend usa Pino. Em desenvolvimento os logs são legíveis; em produção são JSON estruturado, pronto
+para coleta por Datadog, Grafana Loki, CloudWatch ou pelo serviço escolhido no deploy.
+
+| Evento | Nível | Campos principais | Por quê |
+|---|---|---|---|
+| `execucao_bloqueada` | `warn` | `clienteId`, `agenteId`, `usado`, `limite` | Bloqueio é evento esperado de negócio, não erro de infraestrutura. Permite medir demanda reprimida. |
+| Erro HTTP não tratado | `error` | erro, método, rota, `clienteId` | Diagnóstico sem devolver detalhes internos ao cliente. |
+| Falha do healthcheck/pool | `error` | erro do driver | Distingue processo vivo de aplicação incapaz de acessar o banco. |
+| `login_ok` / `login_falhou` | `info` / `warn` | `clienteId` ou e-mail | Auditoria mínima de acesso sem registrar senha. |
+| Inicialização e shutdown | `info` | porta, ambiente ou sinal | Confirma deploy saudável e encerramento gracioso. |
+
+O log de bloqueio acontece depois do commit da transação. Assim o evento só é emitido quando a linha de
+auditoria realmente foi persistida. Tokens e senhas são redigidos pelo logger.
+
+## Monitoramento em produção
+
+Eu acompanharia quatro camadas, porque um dashboard “verde” pode estar disponível e ainda assim deixar
+a cota vazar ou bloquear receita incorretamente:
+
+| Camada | Métrica | Motivo e sinal de alerta |
+|---|---|---|
+| Disponibilidade | sucesso de `/health` e taxa de respostas 5xx | Alerta imediato se o healthcheck falhar por 2 minutos ou 5xx superar 1% por 5 minutos. Mede se o usuário consegue usar o produto. |
+| Latência | p50, p95 e p99 por endpoint | O registro de execução está no caminho crítico do agente. p95 acima de 500 ms por 10 minutos merece investigação. |
+| Banco | conexões ativas/limite, tempo de aquisição, locks e transações abortadas | Saturação do pool e espera por lock antecipam timeout; lock curto em `clientes` é esperado, crescimento contínuo não. |
+| Regra de cota | contadores acima do limite e divergência entre contador e fatos | Deve ser sempre zero. Um job diário reconciliaria `execucoes_mes_atual` com execuções cobradas e abriria incidente em qualquer diferença. |
+| Produto | bloqueios por cliente, contas acima de 80% e execuções bloqueadas | Mostra risco de interrupção e demanda reprimida; alimenta CS e Comercial sem tratar 429 como erro técnico. |
+| Frontend | erros JS, falhas de API e tempo até conteúdo útil | Detecta tela quebrada ou integração degradada mesmo quando a API responde. |
+
+Dashboard operacional mínimo: disponibilidade/latência/5xx, saúde do Postgres, volume de execuções e
+429, contas próximas do limite e top clientes bloqueados. Alertas técnicos devem ir para a equipe de
+engenharia; alertas de 80% e 100% devem ir para CS/Comercial com deduplicação por cliente e competência.
+
+Logs estruturados teriam retenção curta para operação, enquanto a tabela de execuções continua como
+auditoria de negócio. E-mail, senha, token e payload livre não devem virar dimensão de métrica nem tag de
+trace, para evitar vazamento e explosão de cardinalidade.
+
+## Preparação para deploy
+
+O repositório agora oferece dois artefatos independentes de provedor:
+
+- [`backend/Dockerfile`](backend/Dockerfile): build multi-stage, dependências de produção, execução como
+  usuário sem privilégios, shutdown gracioso e healthcheck que também valida o PostgreSQL.
+- [`frontend/Dockerfile`](frontend/Dockerfile): build reproduzível com `VITE_API_URL` obrigatória e
+  imagem Nginx com fallback de SPA, cache imutável para assets e endpoint `/health`.
+
+Exemplo de validação das imagens antes da publicação:
+
+```bash
+docker build -f backend/Dockerfile -t rotik-api .
+docker build --build-arg VITE_API_URL=https://api.exemplo.com -t rotik-web ./frontend
+```
+
+O PostgreSQL gerenciado não executa os arquivos de `docker-entrypoint-initdb.d`. Para um banco novo,
+prepare o schema a partir da imagem da API ou da pasta `backend`:
+
+```bash
+DATABASE_URL='postgresql://...' DATABASE_SSL=true npm run db:schema
+```
+
+A instância pública do desafio pode receber as contas conhecidas descritas na seção de execução local.
+Essa é uma demo descartável, sem dados reais. O comando exige uma confirmação explícita para evitar que
+o seed seja aplicado por engano em outro ambiente:
+
+```bash
+DATABASE_URL='postgresql://...' DATABASE_SSL=true ALLOW_DEMO_SEED=true npm run db:seed:demo
+```
+
+Schema e seed são operações de bootstrap para banco vazio. Evoluções posteriores exigiriam migrations
+versionadas; repetir esses comandos sobre uma base preenchida não faz parte do fluxo de atualização.
+
+No próximo passo ainda será necessário escolher a plataforma, criar PostgreSQL gerenciado, cadastrar os
+secrets, executar o bootstrap documentado, publicar API e frontend, configurar `CORS_ORIGIN`, validar
+HTTPS/healthcheck e colocar os dois URLs reais no topo deste README. A decisão do provedor deve considerar
+PostgreSQL gerenciado, região, cold start, logs, rollback e custo; nenhuma preferência foi fixada aqui.

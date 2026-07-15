@@ -10,7 +10,7 @@ import { useAuth } from '../auth/authContext'
 const statusConfig: Record<StatusExecucao, { rotulo: string; Icone: typeof CheckCircle2; classe: string }> = {
   sucesso: { rotulo: 'Sucesso', Icone: CheckCircle2, classe: 'border-hairline text-ok' },
   erro: { rotulo: 'Erro', Icone: AlertCircle, classe: 'border-hairline text-warn' },
-  bloqueada: { rotulo: 'Bloqueada', Icone: ShieldX, classe: 'border-danger/35 text-danger' },
+  bloqueada: { rotulo: 'Bloqueada', Icone: ShieldX, classe: 'border-danger-border text-danger' },
 }
 
 function ExecucaoItem({ execucao }: { execucao: Execucao }) {
@@ -81,7 +81,7 @@ export function HistoryDialog({ agente, aoFechar }: HistoryDialogProps) {
             {[0, 1, 2, 3].map((item) => <div className="h-24 animate-pulse rounded-xl bg-brand-700/10/70" key={item} />)}
           </div>
         ) : consulta.isError ? (
-          <div className="rounded-xl border border-danger/35 bg-danger/10 px-5 py-8 text-center" role="alert">
+          <div className="rounded-xl border border-danger-border bg-danger-soft px-5 py-8 text-center" role="alert">
             <AlertCircle className="mx-auto size-6 text-danger" aria-hidden="true" />
             <p className="mt-3 font-semibold text-hi">Não foi possível carregar o histórico</p>
             <p className="mt-1 text-sm leading-6 text-lo">{consulta.error instanceof ApiError ? consulta.error.message : 'Tente novamente em instantes.'}</p>

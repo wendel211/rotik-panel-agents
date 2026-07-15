@@ -1,6 +1,6 @@
 import { Pool, type PoolClient } from 'pg';
 
-import { env, isProduction } from '../config/env';
+import { databaseSsl, env } from '../config/env';
 import { logger } from '../shared/logger';
 
 export const pool = new Pool({
@@ -8,9 +8,9 @@ export const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
-  // Provedores gerenciados (Neon, Render, Railway) exigem TLS, mas usam
-  // certificados que o Node não valida por padrão. Em dev, sem TLS.
-  ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
+  // Conexões públicas de provedores gerenciados normalmente exigem TLS. Redes
+  // privadas podem desativá-lo explicitamente com DATABASE_SSL=false.
+  ...(databaseSsl ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 // Um erro em cliente ocioso não deve derrubar o processo silenciosamente.

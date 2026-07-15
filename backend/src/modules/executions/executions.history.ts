@@ -1,5 +1,6 @@
 import { pool } from '../../db/pool';
 import { AppError } from '../../shared/AppError';
+import { z } from 'zod';
 
 export interface ItemHistorico {
   id: string;
@@ -21,6 +22,11 @@ interface Cursor {
   i: string; // id, desempate
 }
 
+const cursorSchema = z.object({
+  c: z.string().datetime({ offset: true }),
+  i: z.string().uuid(),
+});
+
 /**
  * O cursor é opaco de propósito: o cliente não deve construir nem interpretar
  * ele, só devolver o que recebeu. Isso deixa a chave de ordenação livre para
@@ -33,11 +39,7 @@ function codificarCursor(item: ItemHistorico): string {
 
 function decodificarCursor(cursor: string): Cursor {
   try {
-    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as Cursor;
-    if (!parsed.c || !parsed.i || Number.isNaN(Date.parse(parsed.c))) {
-      throw new Error('cursor malformado');
-    }
-    return parsed;
+    return cursorSchema.parse(JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')));
   } catch {
     throw AppError.validacao('Cursor de paginação inválido.');
   }

@@ -155,7 +155,7 @@ export function NewAgentDialog({ aberto, aoFechar }: NewAgentDialogProps) {
             </div>
           </div>
 
-          {erros.formulario && <p className="rounded-xl border border-danger/35 bg-danger/10 px-4 py-3 text-sm text-danger" role="alert">{erros.formulario}</p>}
+          {erros.formulario && <p className="rounded-xl border border-danger-border bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">{erros.formulario}</p>}
         </div>
 
         <div className="flex flex-col-reverse gap-3 border-t border-hairline bg-[#f8faff] px-6 py-4 sm:flex-row sm:justify-end sm:px-7">

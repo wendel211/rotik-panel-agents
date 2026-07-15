@@ -7,7 +7,7 @@ interface ErrorStateProps {
 
 export function ErrorState({ mensagem, aoTentarNovamente }: ErrorStateProps) {
   return (
-    <section className="rounded-2xl border border-danger/35 bg-panel px-5 py-12 text-center shadow-[var(--shadow-panel)] sm:px-8" role="alert">
+    <section className="rounded-2xl border border-danger-border bg-panel px-5 py-12 text-center shadow-[var(--shadow-panel)] sm:px-8" role="alert">
       <span className="mx-auto grid size-11 place-items-center rounded-full bg-red-100 text-danger">
         <WifiOff className="size-5" aria-hidden="true" />
       </span>

@@ -14,6 +14,10 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3333),
 
   DATABASE_URL: z.string().url('DATABASE_URL precisa ser uma URL de conexão válida'),
+  // Alguns provedores exigem TLS na URL pública, enquanto redes privadas
+  // internas podem terminar TLS antes do container. Sem override explícito,
+  // produção usa TLS e desenvolvimento/teste não usam.
+  DATABASE_SSL: z.enum(['true', 'false']).optional(),
 
   // 32 caracteres é o piso para um segredo HMAC não ser força-brutável.
   // O valor de exemplo do .env.example passa aqui de propósito, para o setup
@@ -39,3 +43,4 @@ if (!parsed.success) {
 export const env = parsed.data;
 
 export const isProduction = env.NODE_ENV === 'production';
+export const databaseSsl = env.DATABASE_SSL === undefined ? isProduction : env.DATABASE_SSL === 'true';

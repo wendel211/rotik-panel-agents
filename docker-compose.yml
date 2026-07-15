@@ -4,9 +4,12 @@ services:
     container_name: rotik-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-rotik}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rotik_dev_only}
-      POSTGRES_DB: ${POSTGRES_DB:-rotik}
+      # Sem fallback para credenciais: o Compose falha cedo se a raiz não tiver
+      # um .env criado a partir de .env.example. Assim nenhum segredo de runtime
+      # fica gravado no manifesto.
+      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER no .env da raiz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env da raiz}
+      POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB no .env da raiz}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -16,7 +19,7 @@ services:
       - rotik_pgdata:/var/lib/postgresql/data
     healthcheck:
       # Sem isso, o backend sobe antes do banco aceitar conexões e morre no boot.
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rotik} -d ${POSTGRES_DB:-rotik}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
