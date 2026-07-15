@@ -4,6 +4,7 @@ import helmet from 'helmet';
 
 import { env } from './config/env';
 import { checkDatabaseConnection } from './db/pool';
+import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import { asyncHandler } from './shared/asyncHandler';
 
 export function criarApp(): express.Express {
@@ -39,6 +40,11 @@ export function criarApp(): express.Express {
       });
     }),
   );
+
+  // Ordem importa: 404 para rota desconhecida, e o errorHandler por último de
+  // todos, senão os erros passariam direto sem serem formatados.
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   return app;
 }
