@@ -1,5 +1,6 @@
-import { motion, useReducedMotion } from 'motion/react'
 import { TriangleAlert } from 'lucide-react'
+
+import { BarraFill } from '../../components/BarraFill'
 
 /** Acima disso a conta entra em risco e a barra muda de cor. Ver README. */
 const LIMIAR_ALERTA = 80
@@ -102,7 +103,6 @@ interface MedidorProps {
 }
 
 function Medidor({ rotulo, valor, percentual, cor, pulsar = false, descricao }: MedidorProps) {
-  const reduzirMovimento = useReducedMotion()
   const largura = Math.min(100, Math.max(0, percentual))
 
   return (
@@ -122,14 +122,7 @@ function Medidor({ rotulo, valor, percentual, cor, pulsar = false, descricao }: 
         aria-valuemax={100}
         aria-label={descricao}
       >
-        {/* `initial={false}` já entrega o valor final sem animar quando o usuário
-            pediu menos movimento, então não é preciso forçar o transform à mão. */}
-        <motion.span
-          className={`bar-fill absolute inset-y-0 left-0 w-full rounded-full ${cor} ${pulsar ? 'animate-sheen' : ''}`}
-          initial={reduzirMovimento ? false : { scaleX: 0 }}
-          animate={{ scaleX: largura / 100 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-        />
+        <BarraFill largura={largura / 100} cor={cor} pulsar={pulsar} />
       </div>
     </div>
   )

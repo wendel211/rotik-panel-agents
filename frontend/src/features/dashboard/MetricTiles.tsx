@@ -1,21 +1,30 @@
 import { motion, useReducedMotion } from 'motion/react'
-import { Ban, CircleCheck, PauseCircle, Zap } from 'lucide-react'
-import type { ReactNode } from 'react'
+
+import { BarraFill } from '../../components/BarraFill'
 
 interface MetricTilesProps {
   ativos: number
   pausados: number
   bloqueados: number
   execucoesMes: number
+  limiteMensal: number
 }
 
 /**
  * Leitura de 3 segundos do estado da conta.
  *
- * "Bloqueados" tem destaque próprio porque é o único número desta linha que
- * exige ação. Os outros três são contexto.
+ * Sem chips de ícone: um quadrado colorido com um ícone genérico ao lado do
+ * número é decoração pura, não diz nada que o número já não diga, e é o
+ * carimbo visual de dashboard de template. No lugar dele entra uma régua cuja
+ * largura é a proporção real do valor, ou seja, o mesmo espaço passa a carregar
+ * informação em vez de enfeite.
+ *
+ * O número só ganha cor quando exige atenção. Um "0" em bloqueados pintado de
+ * vermelho gritaria sobre a melhor notícia possível da tela.
  */
-export function MetricTiles({ ativos, pausados, bloqueados, execucoesMes }: MetricTilesProps) {
+export function MetricTiles({ ativos, pausados, bloqueados, execucoesMes, limiteMensal }: MetricTilesProps) {
+  const totalAgentes = ativos + pausados
+
   return (
     <section className="panel p-5" aria-labelledby="titulo-visao">
       <h2 className="mb-4 text-sm font-semibold text-hi" id="titulo-visao">
@@ -26,30 +35,32 @@ export function MetricTiles({ ativos, pausados, bloqueados, execucoesMes }: Metr
         <Tile
           rotulo="Ativos"
           valor={ativos}
-          icone={<CircleCheck className="size-4" />}
-          corChip="bg-brand-700/15 text-accent"
+          proporcao={totalAgentes > 0 ? ativos / totalAgentes : 0}
+          cor="bg-accent"
           indice={0}
         />
         <Tile
           rotulo="Pausados"
           valor={pausados}
-          icone={<PauseCircle className="size-4" />}
-          corChip="bg-warn/15 text-warn"
+          proporcao={totalAgentes > 0 ? pausados / totalAgentes : 0}
+          cor="bg-warn"
+          corTexto={pausados > 0 ? 'text-warn' : undefined}
           indice={1}
         />
         <Tile
           rotulo="Bloqueados"
           valor={bloqueados}
-          icone={<Ban className="size-4" />}
-          corChip="bg-danger/15 text-danger"
+          proporcao={totalAgentes > 0 ? bloqueados / totalAgentes : 0}
+          cor="bg-danger"
+          corTexto={bloqueados > 0 ? 'text-danger' : undefined}
           destacar={bloqueados > 0}
           indice={2}
         />
         <Tile
           rotulo="Execuções no mês"
           valor={execucoesMes}
-          icone={<Zap className="size-4" />}
-          corChip="bg-ok/15 text-ok"
+          proporcao={limiteMensal > 0 ? execucoesMes / limiteMensal : 0}
+          cor="bg-ok"
           indice={3}
         />
       </div>
@@ -60,35 +71,39 @@ export function MetricTiles({ ativos, pausados, bloqueados, execucoesMes }: Metr
 interface TileProps {
   rotulo: string
   valor: number
-  icone: ReactNode
-  corChip: string
+  proporcao: number
+  cor: string
+  corTexto?: string | undefined
   destacar?: boolean
   indice: number
 }
 
-function Tile({ rotulo, valor, icone, corChip, destacar = false, indice }: TileProps) {
+function Tile({ rotulo, valor, proporcao, cor, corTexto, destacar = false, indice }: TileProps) {
   const reduzirMovimento = useReducedMotion()
+  const largura = Math.min(1, Math.max(0, proporcao))
 
   return (
     <motion.div
-      className={`panel-tile flex items-center justify-between gap-3 p-3.5 ${
-        destacar ? 'border-danger/40 bg-danger/5' : ''
-      }`}
+      className={`panel-tile p-3.5 ${destacar ? 'border-danger/40' : ''}`}
       initial={reduzirMovimento ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       // Entrada escalonada: o olho lê da esquerda para a direita em vez de
       // receber os quatro tiles de uma vez.
       transition={{ delay: 0.05 + indice * 0.06, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div className="min-w-0">
-        <p className="truncate text-[0.7rem] text-lo">{rotulo}</p>
-        <p className="mt-1 font-mono text-2xl font-semibold tabular-nums leading-none text-hi">
-          {valor.toLocaleString('pt-BR')}
-        </p>
+      <p className="truncate text-[0.62rem] font-medium uppercase tracking-[0.11em] text-lo">
+        {rotulo}
+      </p>
+
+      <p className={`mt-2 font-mono text-[1.7rem] font-semibold tabular-nums leading-none ${corTexto ?? 'text-hi'}`}>
+        {valor.toLocaleString('pt-BR')}
+      </p>
+
+      {/* A régua é a proporção do valor, não enfeite. Ela some do leitor de tela
+          porque o número ao lado já é o dado; anunciar duas vezes seria ruído. */}
+      <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-hi/8" aria-hidden="true">
+        <BarraFill largura={largura} cor={cor} atraso={0.12 + indice * 0.06} />
       </div>
-      <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${corChip}`} aria-hidden="true">
-        {icone}
-      </span>
     </motion.div>
   )
 }
