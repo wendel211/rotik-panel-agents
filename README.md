@@ -102,6 +102,27 @@ documenta onde a confirmação de produto altera o comportamento.
 
 ## Arquitetura e decisões técnicas
 
+### Registro das decisões
+
+As escolhas abaixo não foram feitas apenas por familiaridade com a stack. Cada uma responde a um risco do
+desafio e assume um custo conhecido.
+
+| Decisão | Por que foi escolhida | Alternativa considerada | Custo aceito |
+|---|---|---|---|
+| Monorepo com backend monolítico modular | O domínio ainda é pequeno e precisa de mudanças coordenadas entre API, banco e interface. Um único repositório reduz atrito de versionamento, enquanto os módulos do backend preservam responsabilidades internas. | Repositórios e microserviços separados para autenticação, agentes e consumo. | Os módulos compartilham processo e deploy da API. Se crescerem com ritmos ou requisitos operacionais diferentes, poderão ser extraídos depois. |
+| PostgreSQL como fonte de verdade da cota | O bloqueio depende de transação, lock e atualização condicional. A mesma operação precisa decidir o saldo, atualizar contadores e preservar auditoria. | Contador em memória ou Redis separado do histórico. | O banco recebe mais escrita e exige atenção a índices e contenção, mas evita consistência eventual na regra financeira central. |
+| Contador consolidado no cliente | O painel consulta consumo com custo constante, independentemente do tamanho do histórico. | Calcular sempre com `COUNT(*)` ou `SUM()` sobre execuções. | Existe dado derivado que pode divergir se alguém alterar o banco fora da API. Por isso a escrita fica concentrada na transação e a divergência entra nas métricas de produção. |
+| SQL explícito com `pg` na operação de consumo | O trecho mais crítico permanece visível: condição de saldo, lock, atualização e auditoria podem ser revisados diretamente. | ORM para todas as consultas. | Há mais SQL manual e mapeamento de linhas. O ganho é não esconder concorrência e atomicidade atrás de comportamento implícito do ORM. |
+| Tenant obtido exclusivamente do JWT | O cliente autenticado não consegue escolher outro tenant modificando body, query ou parâmetros. A autorização nasce de uma identidade já verificada. | Aceitar `clienteId` enviado pelo frontend e conferir depois. | Uma futura visão administrativa precisará de um fluxo de autorização próprio, com papel, escopo e auditoria, em vez de reutilizar as rotas do cliente. |
+| Lote com consumo integral ou bloqueio integral | Uma simulação representa uma única intenção. Aceitar apenas parte produziria resultado diferente do solicitado e dificultaria explicar consumo e repetição. | Consumir até acabar o saldo e rejeitar somente o restante. | O usuário precisa reduzir o lote e reenviar, mas nunca recebe sucesso parcial silencioso. |
+| Paginação keyset no histórico | O histórico cresce continuamente e precisa manter tempo de resposta estável, inclusive durante novas inserções. | Paginação por `OFFSET`. | O cursor é menos flexível para saltar até uma página arbitrária, comportamento que o fluxo operacional não exige. |
+| React SPA com TanStack Query | O produto é um painel autenticado, sem requisito de SEO ou renderização pública. TanStack Query separa estado remoto de estado visual e centraliza cache, invalidação e retries. | Next.js com renderização no servidor ou armazenar respostas da API em Context. | O primeiro carregamento depende do JavaScript e da API, mas o deploy estático é simples e o Context não vira um cache remoto artesanal. |
+
+JWT sem refresh token e sem OAuth foi uma simplificação consciente permitida pelo desafio. Para o MVP, uma
+sessão curta limitada por expiração é suficiente para demonstrar autenticação e isolamento. Em produção,
+eu adicionaria rotação de refresh token, revogação, recuperação de conta e integração com o provedor de
+identidade adotado pela Rotik.
+
 ### Modelo de dados
 
 O PostgreSQL foi escolhido porque a regra central exige consistência transacional. Uma execução aceita
@@ -159,7 +180,7 @@ O frontend usa React, TanStack Query e Context apenas onde o estado realmente é
 - sessão e tema ficam em contexto;
 - dados remotos, cache, revalidação e mutations ficam no TanStack Query;
 - formulários e abertura de diálogos permanecem locais aos componentes;
-- contratos recebidos da API são validados com Zod;
+- formulários e entradas do usuário são validados com Zod antes do envio;
 - histórico usa paginação em vez de carregar toda a tabela;
 - loading, erro e lista vazia têm estados próprios;
 - a atualização manual mantém os dados anteriores, mostra progresso e confirma o sucesso.
