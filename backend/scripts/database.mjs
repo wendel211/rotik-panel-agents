@@ -12,6 +12,7 @@ const arquivos = {
   schema: '01_schema.sql',
   'seed-demo': '02_seed.sql',
   'usage-limits': '03_usage_limits.sql',
+  'plan-capacity': '04_plan_capacity.sql',
 };
 
 const acao = process.argv[2];
@@ -118,6 +119,12 @@ try {
   }
   if (acao === 'schema' || acao === 'deploy') {
     await aplicarMigracao('003_usage_limits', arquivos['usage-limits']);
+  }
+  // Depois do seed de propósito: a 004 reescala o consumo das contas de
+  // demonstração, então precisa das linhas que a 002 cria. Em um banco sem
+  // seed, os UPDATEs simplesmente não encontram nada e a migração é inócua.
+  if (acao === 'schema' || acao === 'deploy') {
+    await aplicarMigracao('004_plan_capacity', arquivos['plan-capacity']);
   }
 } finally {
   await client.end();

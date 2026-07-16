@@ -32,8 +32,8 @@ Contas públicas de demonstração:
 
 | Conta | E-mail | Senha | Plano | Cota mensal | Limite de agentes | Objetivo da demonstração |
 |---|---|---|---|---:|---:|---|
-| Acme Atendimento | `cs@acme.dev` | `senha123` | Growth | 100 execuções, começando em 82 | 5 | Conta próxima do limite, ideal para validar alerta, projeção e bloqueio. |
-| Globex Suporte | `cs@globex.dev` | `senha123` | Pro | 1.000 execuções, começando em 140 | 10 | Conta com margem de uso e maior capacidade, ideal para comparar o comportamento entre planos. |
+| Acme Atendimento | `cs@acme.dev` | `senha123` | Growth | 5.000 execuções, começando em 4.100 | 5 | Conta próxima do limite, ideal para validar alerta, projeção e bloqueio. As 900 execuções restantes cabem em um único lote, então o bloqueio pode ser demonstrado ao vivo. |
+| Globex Suporte | `cs@globex.dev` | `senha123` | Pro | 25.000 execuções, começando em 3.500 | 10 | Conta com margem de uso e maior capacidade, ideal para comparar o comportamento entre planos. |
 
 As contas pertencem a tenants diferentes e nunca compartilham agentes, histórico ou consumo. A Acme usa o
 plano Growth, com cota e capacidade menores; a Globex usa o plano Pro, com dez vezes mais execuções mensais
@@ -354,10 +354,10 @@ Variáveis principais:
 | `ALLOW_DEMO_SEED` | Banco | autorização explícita para dados de demonstração |
 
 As migrations são versionadas, registram checksum e usam advisory lock. A migration de limites adiciona
-as colunas sem alterar checksums já aplicados, normaliza o segundo plano como Pro e configura Growth com 5 e
-Pro com 10 agentes. Isso permite executar
-`npm run db:deploy` em cada cold start sem duplicar schema ou seed e impede dois containers de aplicar a
-mesma migration simultaneamente.
+as colunas sem alterar checksums já aplicados, normaliza o segundo plano como Pro e configura Growth com 5 e Pro com 10 agentes. A migração `004` leva a capacidade dos planos para a escala de um produto real,
+com Growth em 5.000 execuções mensais e Pro em 25.000, e reescala o consumo das contas de demonstração
+junto com o limite: subir só o teto esvaziaria a barra e esconderia justamente o estado de alerta que o
+painel existe para mostrar.
 
 O backend usa Pino e registra inicialização, encerramento, login, erros e bloqueios de cota. Senha,
 token, hash e cabeçalho de autorização são removidos dos logs.
