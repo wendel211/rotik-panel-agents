@@ -277,8 +277,8 @@ quota e integração HTTP. O backend usa PostgreSQL 16 real no teste de concorr�
 
 | Projeto | Testes | Statements | Branches | Functions | Lines |
 |---|---:|---:|---:|---:|---:|
-| Backend | 12 | 97,35% | 92,85% | 95,23% | 97,25% |
-| Frontend | 29 | 97,93% | 92,08% | 99,19% | 99,41% |
+| Backend | 15 | 98,19% | 94,44% | 95,65% | 98,12% |
+| Frontend | 30 | 97,01% | 91,49% | 98,49% | 98,19% |
 
 Para executar a mesma base de validação local:
 
