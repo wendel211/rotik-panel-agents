@@ -1,7 +1,7 @@
 # Rotik Panel Agents
 
 Painel fullstack para acompanhar agentes de IA por cliente, registrar execuções e impedir consumo acima
-da cota mensal contratada. O projeto foi desenvolvido para o desafio técnico fullstack da Rotik.
+da cota mensal contratada.
 
 **Produção:** [Frontend na Vercel](https://rotik-panel-agents.vercel.app) | [Documentação da API](https://rotik-agents-api-wendel211.onrender.com/docs) | [Healthcheck da API](https://rotik-agents-api-wendel211.onrender.com/health)
 
@@ -443,4 +443,4 @@ de upgrades acompanhado por mais reclamações pode significar abordagem comerci
 
 ## Licença e uso
 
-Projeto criado exclusivamente para avaliação técnica. As contas e dados publicados são fictícios.
+Projeto criado exclusivamente. As contas e dados publicados são fictícios.
